@@ -1,12 +1,20 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
 
 class AppTheme {
   AppTheme._();
 
   static ThemeData light() {
-    return ThemeData(
-      useMaterial3: true,
-      colorSchemeSeed: const Color(0xFF1565C0),
+    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF1F6F8B));
+    return ThemeData.light(useMaterial3: true).copyWith(
+      colorScheme: colorScheme,
+      inputDecorationTheme: InputDecorationTheme(
+        border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      ),
+      cardTheme: CardThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 }

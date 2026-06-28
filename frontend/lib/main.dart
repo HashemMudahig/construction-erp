@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "core/router/app_router.dart";
+import "core/theme/app_theme.dart";
 
 void main() {
   runApp(const ProviderScope(child: ConstructionErpApp()));
@@ -16,10 +17,7 @@ class ConstructionErpApp extends ConsumerWidget {
     return MaterialApp.router(
       title: "Construction ERP",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF1565C0),
-      ),
+      theme: AppTheme.light(),
       routerConfig: router,
     );
   }
