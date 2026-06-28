@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: construction_erp_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_password}
+      POSTGRES_DB: ${POSTGRES_DB:-construction_erp}
+    ports:
+      - "5432:5432"
+    volumes:
+      - construction_erp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-construction_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  construction_erp_pgdata:

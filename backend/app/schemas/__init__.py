@@ -1,0 +1,1 @@
+"""Pydantic request/response schemas. One module per entity (to be added per sprint)."""
