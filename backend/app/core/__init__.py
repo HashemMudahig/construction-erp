@@ -6,5 +6,6 @@ from app.core.security import (  # noqa: F401
     create_access_token,
     decode_access_token,
     hash_password,
+    require_user,
     verify_password,
 )

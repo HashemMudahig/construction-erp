@@ -2,7 +2,6 @@
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,14 +31,11 @@ class Settings(BaseSettings):
     admin_email: str = "admin@construction.local"
     admin_password: str = "change-me-on-first-login"
 
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: str = "http://localhost:3000,http://localhost:8080"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def split_origins(cls, value):
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 @lru_cache
