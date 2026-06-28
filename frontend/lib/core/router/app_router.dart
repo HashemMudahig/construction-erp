@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/clients/presentation/client_detail_screen.dart';
 import '../../features/clients/presentation/client_form_screen.dart';
 import '../../features/clients/presentation/client_list_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/project_list_screen.dart';
@@ -29,7 +30,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (_, __, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/', builder: (_, __) => const ClientListScreen()),
+          GoRoute(path: '/', builder: (_, __) => const DashboardScreen()),
+          GoRoute(path: '/clients', builder: (_, __) => const ClientListScreen()),
           GoRoute(path: '/clients/new', builder: (_, __) => const ClientFormScreen()),
           GoRoute(
             path: '/clients/:id',

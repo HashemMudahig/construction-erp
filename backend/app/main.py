@@ -8,6 +8,7 @@ from app.core.response import success
 from app.routers import (
     auth_router,
     clients_router,
+    dashboard_router,
     expenses_router,
     health_router,
     milestones_router,
@@ -38,6 +39,7 @@ app.include_router(projects_router, prefix="/api/v1")
 app.include_router(milestones_router, prefix="/api/v1")
 app.include_router(payments_router, prefix="/api/v1")
 app.include_router(expenses_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
 
 
 @app.get("/")

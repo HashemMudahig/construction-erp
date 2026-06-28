@@ -14,7 +14,14 @@ class AppShell extends ConsumerWidget {
     final session = ref.watch(authSessionProvider);
     final location = GoRouterState.of(context).uri.path;
     // Determine the active section from the path.
-    final section = location.startsWith('/projects') ? 1 : 0;
+    int section;
+    if (location.startsWith('/projects')) {
+      section = 2;
+    } else if (location.startsWith('/clients')) {
+      section = 1;
+    } else {
+      section = 0; // dashboard
+    }
 
     final body = Row(
       children: [
@@ -22,10 +29,16 @@ class AppShell extends ConsumerWidget {
           selectedIndex: section,
           onDestinationSelected: (i) {
             if (i == 0) context.go('/');
-            if (i == 1) context.go('/projects');
+            if (i == 1) context.go('/clients');
+            if (i == 2) context.go('/projects');
           },
           labelType: NavigationRailLabelType.all,
           destinations: const [
+            NavigationRailDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: Text('Dashboard'),
+            ),
             NavigationRailDestination(
               icon: Icon(Icons.people_outline),
               selectedIcon: Icon(Icons.people),
@@ -54,15 +67,21 @@ class AppShell extends ConsumerWidget {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.people_outline),
-            title: const Text('Clients'),
+            leading: const Icon(Icons.dashboard_outlined),
+            title: const Text('Dashboard'),
             selected: section == 0,
             onTap: () { context.go('/'); Navigator.pop(context); },
           ),
           ListTile(
+            leading: const Icon(Icons.people_outline),
+            title: const Text('Clients'),
+            selected: section == 1,
+            onTap: () { context.go('/clients'); Navigator.pop(context); },
+          ),
+          ListTile(
             leading: const Icon(Icons.folder_outlined),
             title: const Text('Projects'),
-            selected: section == 1,
+            selected: section == 2,
             onTap: () { context.go('/projects'); Navigator.pop(context); },
           ),
         ],
