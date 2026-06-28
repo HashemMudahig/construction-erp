@@ -80,7 +80,42 @@ This file records notable updates made to the Construction ERP backend.
 
 ### Verification
 
-- `python -c "import app.main"` succeeds; `Base.metadata` lists `clients`, `projects`, `users`.
-- `alembic upgrade head` applied cleanly to PostgreSQL 18.
-- `python -m app.db.seed` created the single admin.
-- `pytest tests/` → 4 passed (health + full auth/clients/projects flow).
+- `python -c "import app.main"` succeeds; `Base.metadata` lists `clients`, `expenses`, `milestones`, `payments`, `projects`, `users` (6 tables).
+- `alembic upgrade head` applied `0002_financials` on top of `0001_initial`.
+- `pytest tests/` → 10 passed (4 Sprint 01 + 6 Sprint 02): milestone CRUD + complete, payment CRUD + amount validation, expense CRUD + category validation, profitability math (0.75 margin), cascade delete, not-found paths.
+
+## 2026-06-28 (Sprint 02 backend pass)
+
+### S02-T01 — Milestones
+
+- Created `app/models/milestone.py` (UUID PK, FK→projects CASCADE, status CHECK constraint, indexes on project_id + due_date).
+- Created `app/schemas/milestone.py` (`MilestoneCreate`/`Read`/`Update` with status literal).
+- Created `app/repositories/milestone_repo.py` (list by project_id/status, ordered by due_date).
+- Created `app/services/milestone_service.py` (PROJECT_NOT_FOUND validation, `complete()` with transition guard).
+- Created `app/routers/milestones.py` (CRUD + `POST /{id}/complete`).
+
+### S02-T02 — Payments
+
+- Created `app/models/payment.py` (UUID PK, FK→projects CASCADE, amount > 0 CHECK, method CHECK, indexes).
+- Created `app/schemas/payment.py` (`PaymentCreate`/`Read`/`Update` with `Decimal` gt=0).
+- Created `app/repositories/payment_repo.py` (list by project_id, `sum_amount_by_project`).
+- Created `app/services/payment_service.py` (amount validation, project existence check).
+- Created `app/routers/payments.py` (full CRUD).
+
+### S02-T03 — Expenses
+
+- Created `app/models/expense.py` (UUID PK, FK→projects CASCADE, amount > 0 CHECK, indexes).
+- Created `app/schemas/expense.py` (`ExpenseCreate`/`Read`/`Update` with category literal).
+- Created `app/repositories/expense_repo.py` (list by project_id/category, `sum_amount_by_project`).
+- Created `app/services/expense_service.py` (category validation, project existence check).
+- Created `app/routers/expenses.py` (full CRUD).
+
+### S02-T04 — Profitability
+
+- Created `app/schemas/profitability.py` (`ProjectProfitabilityResponse` with total_payments, total_expenses, balance, profit_margin).
+- Created `app/services/profitability_service.py` (sums via repos, balance = payments - expenses, margin = balance/payments quantized to 0.01, 0 when no payments).
+- Added `GET /api/v1/projects/{id}/profitability` to the projects router.
+
+### Migration
+
+- Created `alembic/versions/0002_financials.py`: milestones, payments, expenses tables with FK CASCADE, CHECK constraints, and indexes. Downgrade drops in reverse order.

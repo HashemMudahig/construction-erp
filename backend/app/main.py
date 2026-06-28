@@ -5,7 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.response import success
-from app.routers import auth_router, clients_router, health_router, projects_router
+from app.routers import (
+    auth_router,
+    clients_router,
+    expenses_router,
+    health_router,
+    milestones_router,
+    payments_router,
+    projects_router,
+)
 
 app = FastAPI(
     title=settings.app_name,
@@ -27,6 +35,9 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(clients_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
+app.include_router(milestones_router, prefix="/api/v1")
+app.include_router(payments_router, prefix="/api/v1")
+app.include_router(expenses_router, prefix="/api/v1")
 
 
 @app.get("/")

@@ -1,11 +1,13 @@
-"""Projects router — CRUD endpoints."""
+"""Projects router — CRUD endpoints + profitability."""
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.response import success
 from app.core.security import require_user
+from app.schemas.profitability import ProjectProfitabilityResponse
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.services.profitability_service import ProjectProfitabilityService
 from app.services.project_service import ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -80,3 +82,23 @@ def delete_project(
     service = ProjectService(db)
     service.delete(project_id)
     return success(data={"id": project_id}, message="Project deleted")
+
+
+@router.get("/{project_id}/profitability")
+def project_profitability(
+    project_id: str,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_user),
+) -> dict:
+    service = ProjectProfitabilityService(db)
+    result = service.calculate_profit(project_id)
+    return success(
+        data=ProjectProfitabilityResponse(
+            project_id=result.project_id,
+            total_payments=result.total_payments,
+            total_expenses=result.total_expenses,
+            balance=result.balance,
+            profit_margin=result.profit_margin,
+        ).model_dump(mode="json"),
+        message="Project profitability retrieved",
+    )
