@@ -11,6 +11,7 @@ import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/project_list_screen.dart';
+import '../../features/reports/presentation/reports_screen.dart';
 import 'app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -54,6 +55,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/projects/:id/edit',
             builder: (_, s) => ProjectFormScreen(id: s.pathParameters['id']!),
           ),
+          GoRoute(path: '/reports', builder: (_, __) => const ReportsScreen()),
         ],
       ),
     ],

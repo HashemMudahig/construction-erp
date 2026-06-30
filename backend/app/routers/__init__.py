@@ -7,8 +7,10 @@ from app.routers.health import router as health_router
 from app.routers.milestones import router as milestones_router
 from app.routers.payments import router as payments_router
 from app.routers.projects import router as projects_router
+from app.routers.reports import router as reports_router
 
 __all__ = [
     "auth_router", "clients_router", "dashboard_router", "expenses_router",
     "health_router", "milestones_router", "payments_router", "projects_router",
+    "reports_router",
 ]

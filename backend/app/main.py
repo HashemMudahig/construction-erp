@@ -14,6 +14,7 @@ from app.routers import (
     milestones_router,
     payments_router,
     projects_router,
+    reports_router,
 )
 
 app = FastAPI(
@@ -40,6 +41,7 @@ app.include_router(milestones_router, prefix="/api/v1")
 app.include_router(payments_router, prefix="/api/v1")
 app.include_router(expenses_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 
 
 @app.get("/")

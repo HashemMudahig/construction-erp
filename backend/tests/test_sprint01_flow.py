@@ -50,7 +50,7 @@ def test_auth_and_crud_flow() -> None:
     cid = r.json()["data"]["id"]
 
     # list clients contains it
-    r = client.get("/api/v1/clients", headers=H)
+    r = client.get("/api/v1/clients", headers=H, params={"limit": 100})
     assert r.status_code == 200
     names = [c["name"] for c in r.json()["data"]]
     assert "Acme Builders" in names

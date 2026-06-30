@@ -19,6 +19,8 @@ class AppShell extends ConsumerWidget {
       section = 2;
     } else if (location.startsWith('/clients')) {
       section = 1;
+    } else if (location.startsWith('/reports')) {
+      section = 3;
     } else {
       section = 0; // dashboard
     }
@@ -31,6 +33,7 @@ class AppShell extends ConsumerWidget {
             if (i == 0) context.go('/');
             if (i == 1) context.go('/clients');
             if (i == 2) context.go('/projects');
+            if (i == 3) context.go('/reports');
           },
           labelType: NavigationRailLabelType.all,
           destinations: const [
@@ -48,6 +51,11 @@ class AppShell extends ConsumerWidget {
               icon: Icon(Icons.folder_outlined),
               selectedIcon: Icon(Icons.folder),
               label: Text('Projects'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.assessment_outlined),
+              selectedIcon: Icon(Icons.assessment),
+              label: Text('Reports'),
             ),
           ],
         ),
@@ -83,6 +91,12 @@ class AppShell extends ConsumerWidget {
             title: const Text('Projects'),
             selected: section == 2,
             onTap: () { context.go('/projects'); Navigator.pop(context); },
+          ),
+          ListTile(
+            leading: const Icon(Icons.assessment_outlined),
+            title: const Text('Reports'),
+            selected: section == 3,
+            onTap: () { context.go('/reports'); Navigator.pop(context); },
           ),
         ],
       ),
