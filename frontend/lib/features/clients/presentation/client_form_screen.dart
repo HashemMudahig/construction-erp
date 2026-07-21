@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/client_dto.dart';
 import '../data/client_repository.dart';
 import 'client_providers.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class ClientFormScreen extends ConsumerStatefulWidget {
   const ClientFormScreen({this.id, super.key});
@@ -95,7 +96,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     if (ok) {
       if (mounted) context.go('/');
     } else {
-      setState(() => _error = notifier.lastError() ?? 'Save failed');
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      setState(() => _error = notifier.lastError() ?? (isAr ? 'فشل الحفظ' : 'Save failed'));
     }
   }
 
@@ -103,11 +105,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete client'),
-        content: const Text('Are you sure you want to delete this client?'),
+        title: Text(context.tr('delete_client')),
+        content: Text(context.tr('confirm_delete_client')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(_, false), child: Text(context.tr('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(_, true), child: Text(context.tr('delete'))),
         ],
       ),
     );
@@ -127,9 +129,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit client' : 'New client'),
+        title: Text(_isEdit ? context.tr('edit_client') : context.tr('new_client')),
         actions: _isEdit
-            ? [IconButton(icon: const Icon(Icons.delete), tooltip: 'Delete', onPressed: _delete)]
+            ? [IconButton(icon: const Icon(Icons.delete), tooltip: context.tr('delete'), onPressed: _delete)]
             : null,
       ),
       body: SingleChildScrollView(
@@ -141,43 +143,43 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             children: [
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Name *'),
+                decoration: InputDecoration(labelText: '${context.tr('client_name')} *'),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                    (v == null || v.trim().isEmpty) ? (Localizations.localeOf(context).languageCode == 'ar' ? 'الاسم مطلوب' : 'Name is required') : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: InputDecoration(labelText: context.tr('phone')),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _email,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(labelText: context.tr('email')),
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
                   final s = v?.trim() ?? '';
                   if (s.isEmpty) return null;
                   final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                  return re.hasMatch(s) ? null : 'Enter a valid email';
+                  return re.hasMatch(s) ? null : (Localizations.localeOf(context).languageCode == 'ar' ? 'أدخل بريداً إلكترونياً صحيحاً' : 'Enter a valid email');
                 },
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _address,
-                decoration: const InputDecoration(labelText: 'Address'),
+                decoration: InputDecoration(labelText: Localizations.localeOf(context).languageCode == 'ar' ? 'العنوان' : 'Address'),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes'),
+                decoration: InputDecoration(labelText: Localizations.localeOf(context).languageCode == 'ar' ? 'ملاحظات' : 'Notes'),
                 maxLines: 3,
               ),
               const SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('Archived'),
+                title: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'مؤرشف' : 'Archived'),
                 value: _archived,
                 onChanged: (v) => setState(() => _archived = v),
               ),
@@ -191,7 +193,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                 onPressed: _saving ? null : _save,
                 child: _saving
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_isEdit ? 'Update' : 'Create'),
+                    : Text(_isEdit ? (Localizations.localeOf(context).languageCode == 'ar' ? 'تحديث' : 'Update') : (Localizations.localeOf(context).languageCode == 'ar' ? 'إنشاء' : 'Create')),
               ),
             ],
           ),

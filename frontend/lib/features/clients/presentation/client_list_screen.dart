@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'client_providers.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class ClientListScreen extends ConsumerStatefulWidget {
   const ClientListScreen({super.key});
@@ -28,28 +29,49 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Clients'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.people, color: theme.colorScheme.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text(context.tr('clients')),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add client',
-            onPressed: () => context.go('/clients/new'),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.add, size: 22),
+              tooltip: context.tr('add_client'),
+              color: Colors.white,
+              onPressed: () => context.go('/clients/new'),
+            ),
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
+          preferredSize: const Size.fromHeight(64),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search clients...',
-                prefixIcon: const Icon(Icons.search),
+                hintText: context.tr('search_clients'),
+                prefixIcon: const Icon(Icons.search, size: 22),
                 suffixIcon: _searching
-                    ? const SizedBox(
-                        width: 18, height: 18,
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
@@ -61,6 +83,8 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
                         },
                       ),
                 isDense: true,
+                filled: true,
+                fillColor: theme.colorScheme.surface,
               ),
               onChanged: _onSearchChanged,
             ),
@@ -72,34 +96,22 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
         error: (e, _) => _ErrorView(message: e.toString(), onRetry: () => ref.invalidate(clientsListProvider)),
         data: (clients) {
           if (clients.isEmpty) {
+            final isAr = Localizations.localeOf(context).languageCode == 'ar';
             return _EmptyView(
-              message: 'No clients yet. Add your first client.',
-              cta: 'Add client',
+              message: isAr ? 'لا يوجد عملاء بعد. أضف عميلك الأول.' : 'No clients yet. Add your first client.',
+              cta: context.tr('add_client'),
               onCta: () => context.go('/clients/new'),
             );
           }
           return RefreshIndicator(
             onRefresh: () => ref.read(clientsListProvider.notifier).refresh(),
             child: ListView.separated(
+              padding: const EdgeInsets.all(16),
               itemCount: clients.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final c = clients[i];
-                return ListTile(
-                  leading: CircleAvatar(child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : '?')),
-                  title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text([
-                    if (c.phone != null && c.phone!.isNotEmpty) c.phone!,
-                    if (c.email != null && c.email!.isNotEmpty) c.email!,
-                  ].join('  •  ')),
-                  trailing: Chip(
-                    label: Text(c.archived ? 'Archived' : 'Active'),
-                    backgroundColor: c.archived
-                        ? theme.colorScheme.surfaceContainerHighest
-                        : theme.colorScheme.primaryContainer,
-                  ),
-                  onTap: () => context.go('/clients/${c.id}'),
-                );
+                return _ClientCard(client: c, theme: theme, onTap: () => context.go('/clients/${c.id}'));
               },
             ),
           );
@@ -119,23 +131,131 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
   }
 }
 
+class _ClientCard extends StatelessWidget {
+  final dynamic client;
+  final ThemeData theme;
+  final VoidCallback onTap;
+
+  const _ClientCard({required this.client, required this.theme, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client.name,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        if (client.phone != null && client.phone!.isNotEmpty) client.phone!,
+                        if (client.email != null && client.email!.isNotEmpty) client.email!,
+                      ].join('  •  '),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: client.archived
+                      ? theme.colorScheme.surfaceContainerHighest
+                      : theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  client.archived
+                      ? (Localizations.localeOf(context).languageCode == 'ar' ? 'مؤرشف' : 'Archived')
+                      : (Localizations.localeOf(context).languageCode == 'ar' ? 'نشط' : 'Active'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: client.archived
+                        ? theme.colorScheme.onSurface.withValues(alpha: 0.6)
+                        : theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
   final String message;
   final VoidCallback onRetry;
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              ),
+              const SizedBox(height: 16),
+              Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'إعادة المحاولة' : 'Retry'),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _EmptyView extends StatelessWidget {
@@ -144,16 +264,38 @@ class _EmptyView extends StatelessWidget {
   final String cta;
   final VoidCallback onCta;
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.people_outline, size: 48),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onCta, child: Text(cta)),
-          ],
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.people_outline, size: 48, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(height: 16),
+              Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: onCta,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(cta),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 }

@@ -3,16 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/dio_provider.dart';
-import '../../expenses/data/expense_repository.dart';
 import '../../expenses/domain/expense_entity.dart';
 import '../../expenses/presentation/expense_form_dialog.dart';
 import '../../expenses/presentation/expense_providers.dart';
-import '../../milestones/data/milestone_repository.dart';
 import '../../milestones/domain/milestone_entity.dart';
 import '../../milestones/presentation/milestone_form_dialog.dart';
 import '../../milestones/presentation/milestone_providers.dart';
-import '../../payments/data/payment_repository.dart';
 import '../../payments/domain/payment_entity.dart';
 import '../../payments/presentation/payment_form_dialog.dart';
 import '../../payments/presentation/payment_providers.dart';
@@ -29,11 +27,11 @@ class ProjectDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Project detail'),
+        title: Text(context.tr('project_detail')),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: 'Edit',
+            tooltip: context.tr('edit'),
             onPressed: () => context.go('/projects/$id/edit'),
           ),
         ],
@@ -54,44 +52,123 @@ class _ProjectDetailBody extends ConsumerWidget {
   final ThemeData theme;
   final WidgetRef ref;
 
+  String _localizedStatus(BuildContext context, String s) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    if (s == 'active') return isAr ? 'نشط' : 'Active';
+    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
+    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
+    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
+    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
+    return s.replaceAll('_', ' ');
+  }
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'active': return Colors.green;
+      case 'completed': return Colors.blue;
+      case 'on_hold': return Colors.orange;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final statusColor = _statusColor(project.status);
+
     return DefaultTabController(
       length: 4,
       child: Column(
         children: [
-          // Header card
-          Card(
-            margin: const EdgeInsets.all(16),
+          // ── Header card ──
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+              ],
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Expanded(
-                        child: Text(project.name,
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          project.name,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                      Chip(label: Text(project.status)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.2),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _localizedStatus(context, project.status),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
                     ],
                   ),
-                  const Divider(height: 20),
-                  _InfoRow(label: 'Budget', value: '${project.budget.toStringAsFixed(2)}'),
-                  _InfoRow(label: 'Start', value: _fmt(project.startDate)),
-                  _InfoRow(label: 'End', value: _fmt(project.endDate)),
-                  if (project.description != null) _InfoRow(label: 'Description', value: project.description!),
+                  const SizedBox(height: 16),
+                  // Budget / Start / End row
+                  Row(
+                    children: [
+                      _HeaderStat(
+                        label: context.tr('budget'),
+                        value: '${project.budget.toStringAsFixed(0)} ${context.tr('currency')}',
+                        icon: Icons.account_balance_wallet_outlined,
+                      ),
+                      const SizedBox(width: 16),
+                      _HeaderStat(
+                        label: context.tr('start_date'),
+                        value: _fmt(project.startDate),
+                        icon: Icons.calendar_today_outlined,
+                      ),
+                      const SizedBox(width: 16),
+                      _HeaderStat(
+                        label: context.tr('end_date'),
+                        value: _fmt(project.endDate),
+                        icon: Icons.flag_outlined,
+                      ),
+                    ],
+                  ),
+                  if (project.description != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      project.description!,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
-          const TabBar(
+          // ── Tab bar ──
+          const SizedBox(height: 8),
+          TabBar(
+            isScrollable: false,
             tabs: [
-              Tab(text: 'Profitability'),
-              Tab(text: 'Milestones'),
-              Tab(text: 'Payments'),
-              Tab(text: 'Expenses'),
+              Tab(text: context.tr('profitability')),
+              Tab(text: context.tr('tab_milestones')),
+              Tab(text: context.tr('tab_payments')),
+              Tab(text: context.tr('tab_expenses')),
             ],
           ),
           Expanded(
@@ -115,6 +192,36 @@ class _ProjectDetailBody extends ConsumerWidget {
   }
 }
 
+class _HeaderStat extends StatelessWidget {
+  const _HeaderStat({required this.label, required this.value, required this.icon});
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white60, size: 14),
+              const SizedBox(width: 4),
+              Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Profitability Tab ────────────────────────────────────────────────────────
+
 class _ProfitabilityTab extends ConsumerWidget {
   const _ProfitabilityTab({required this.projectId});
   final String projectId;
@@ -127,52 +234,99 @@ class _ProfitabilityTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (data) {
         final d = data as Map<String, dynamic>;
-        return Padding(
+        return ListView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _ProfitRow(label: 'Total payments', value: d['total_payments'] as String, color: Colors.green),
-                      _ProfitRow(label: 'Total expenses', value: d['total_expenses'] as String, color: Colors.red),
-                      const Divider(),
-                      _ProfitRow(label: 'Balance', value: d['balance'] as String, color: Colors.blue, bold: true),
-                      _ProfitRow(label: 'Profit margin', value: '${(d['profit_margin'] as String)}%', color: Colors.orange),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          children: [
+            _ProfitCard(
+              label: context.tr('total_payments'),
+              value: d['total_payments'] as String,
+              color: Colors.green,
+              icon: Icons.payments_outlined,
+            ),
+            const SizedBox(height: 12),
+            _ProfitCard(
+              label: context.tr('total_expenses'),
+              value: d['total_expenses'] as String,
+              color: Colors.red,
+              icon: Icons.receipt_long_outlined,
+            ),
+            const SizedBox(height: 12),
+            _ProfitCard(
+              label: context.tr('balance'),
+              value: d['balance'] as String,
+              color: Colors.blue,
+              icon: Icons.account_balance_outlined,
+              isLarge: true,
+            ),
+            const SizedBox(height: 12),
+            _ProfitCard(
+              label: context.tr('profit_margin'),
+              value: '${d['profit_margin'] as String}%',
+              color: Colors.orange,
+              icon: Icons.trending_up,
+            ),
+          ],
         );
       },
     );
   }
 }
 
-class _ProfitRow extends StatelessWidget {
-  const _ProfitRow({required this.label, required this.value, required this.color, this.bold = false});
+class _ProfitCard extends StatelessWidget {
+  const _ProfitCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+    this.isLarge = false,
+  });
   final String label;
   final String value;
   final Color color;
-  final bool bold;
+  final IconData icon;
+  final bool isLarge;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: TextStyle(color: color, fontSize: 16, fontWeight: bold ? FontWeight.bold : null)),
-            Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 14),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: isLarge ? 22 : 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+// ─── Milestones Tab ───────────────────────────────────────────────────────────
 
 class _MilestonesTab extends ConsumerWidget {
   const _MilestonesTab({required this.projectId});
@@ -188,20 +342,15 @@ class _MilestonesTab extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (milestones) {
             if (milestones.isEmpty) {
-              return const Center(child: Text('No milestones yet'));
+              return Center(child: Text(context.tr('no_milestones')));
             }
             return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               itemCount: milestones.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final m = milestones[i];
-                return ListTile(
-                  leading: _StatusIcon(status: m.status),
-                  title: Text(m.title),
-                  subtitle: Text('Due: ${_fmtDate(m.dueDate)}'),
-                  trailing: Chip(label: Text(m.status)),
-                  onTap: () => _showMilestoneForm(context, ref, projectId, m),
-                );
+                return _MilestoneCard(milestone: m, onTap: () => _showMilestoneForm(context, ref, projectId, m));
               },
             );
           },
@@ -219,6 +368,59 @@ class _MilestonesTab extends ConsumerWidget {
   }
 }
 
+class _MilestoneCard extends StatelessWidget {
+  const _MilestoneCard({required this.milestone, required this.onTap});
+  final MilestoneEntity milestone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    String localStatus = milestone.status;
+    if (milestone.status == 'completed') localStatus = isAr ? 'مكتمل' : 'Completed';
+    if (milestone.status == 'in_progress') localStatus = isAr ? 'قيد التنفيذ' : 'In Progress';
+    if (milestone.status == 'overdue') localStatus = isAr ? 'متأخر' : 'Overdue';
+    if (milestone.status == 'pending') localStatus = isAr ? 'معلق' : 'Pending';
+
+    return Card(
+      child: ListTile(
+        leading: _StatusIcon(status: milestone.status),
+        title: Text(milestone.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('${context.tr('due')}: ${_fmtDate(milestone.dueDate)}'),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: _statusBg(milestone.status),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(localStatus, style: TextStyle(fontSize: 12, color: _statusFg(milestone.status), fontWeight: FontWeight.bold)),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Color _statusBg(String s) {
+    switch (s) {
+      case 'completed': return const Color(0xFFDCFCE7);
+      case 'in_progress': return const Color(0xFFFEF3C7);
+      case 'overdue': return const Color(0xFFFEE2E2);
+      default: return const Color(0xFFF1F5F9);
+    }
+  }
+
+  Color _statusFg(String s) {
+    switch (s) {
+      case 'completed': return const Color(0xFF166534);
+      case 'in_progress': return const Color(0xFF92400E);
+      case 'overdue': return const Color(0xFF991B1B);
+      default: return const Color(0xFF475569);
+    }
+  }
+}
+
+// ─── Payments Tab ─────────────────────────────────────────────────────────────
+
 class _PaymentsTab extends ConsumerWidget {
   const _PaymentsTab({required this.projectId});
   final String projectId;
@@ -233,25 +435,24 @@ class _PaymentsTab extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (payments) {
             if (payments.isEmpty) {
-              return const Center(child: Text('No payments yet'));
+              return Center(child: Text(context.tr('no_payments')));
             }
             final total = payments.fold<Decimal>(Decimal.zero, (sum, p) => sum + p.amount);
             return Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Total: ${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
+                _TotalBanner(label: context.tr('total'), value: total.toStringAsFixed(2), color: Colors.green),
                 Expanded(
                   child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                     itemCount: payments.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final p = payments[i];
-                      return ListTile(
-                        leading: const Icon(Icons.payments_outlined, color: Colors.green),
-                        title: Text(p.amount.toStringAsFixed(2)),
-                        subtitle: Text('${_fmtDate(p.paymentDate)}  •  ${p.method}'),
+                      return _TransactionCard(
+                        amount: p.amount.toStringAsFixed(2),
+                        subtitle: '${_fmtDate(p.paymentDate)}  •  ${p.method}',
+                        icon: Icons.payments_outlined,
+                        color: Colors.green,
                         onTap: () => _showPaymentForm(context, ref, projectId, p),
                       );
                     },
@@ -274,6 +475,8 @@ class _PaymentsTab extends ConsumerWidget {
   }
 }
 
+// ─── Expenses Tab ─────────────────────────────────────────────────────────────
+
 class _ExpensesTab extends ConsumerWidget {
   const _ExpensesTab({required this.projectId});
   final String projectId;
@@ -288,25 +491,24 @@ class _ExpensesTab extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (expenses) {
             if (expenses.isEmpty) {
-              return const Center(child: Text('No expenses yet'));
+              return Center(child: Text(context.tr('no_expenses')));
             }
             final total = expenses.fold<Decimal>(Decimal.zero, (sum, e) => sum + e.amount);
             return Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Total: ${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
+                _TotalBanner(label: context.tr('total'), value: total.toStringAsFixed(2), color: Colors.red),
                 Expanded(
                   child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                     itemCount: expenses.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final e = expenses[i];
-                      return ListTile(
-                        leading: const Icon(Icons.receipt_outlined, color: Colors.red),
-                        title: Text(e.amount.toStringAsFixed(2)),
-                        subtitle: Text('${_fmtDate(e.expenseDate)}  •  ${e.category}'),
+                      return _TransactionCard(
+                        amount: e.amount.toStringAsFixed(2),
+                        subtitle: '${_fmtDate(e.expenseDate)}  •  ${e.category}',
+                        icon: Icons.receipt_outlined,
+                        color: Colors.red,
                         onTap: () => _showExpenseForm(context, ref, projectId, e),
                       );
                     },
@@ -327,6 +529,62 @@ class _ExpensesTab extends ConsumerWidget {
       ],
     );
   }
+}
+
+// ─── Shared small widgets ─────────────────────────────────────────────────────
+
+class _TotalBanner extends StatelessWidget {
+  const _TotalBanner({required this.label, required this.value, required this.color});
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withValues(alpha: 0.2)),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18)),
+      ],
+    ),
+  );
+}
+
+class _TransactionCard extends StatelessWidget {
+  const _TransactionCard({
+    required this.amount,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  final String amount;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: CircleAvatar(
+        backgroundColor: color.withValues(alpha: 0.1),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+      onTap: onTap,
+    ),
+  );
 }
 
 class _StatusIcon extends StatelessWidget {
@@ -375,41 +633,23 @@ void _showExpenseForm(BuildContext context, WidgetRef ref, String projectId, Exp
 String _fmtDate(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 90, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
-            Expanded(child: Text(value)),
-          ],
-        ),
-      );
-}
-
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
   final String message;
   final VoidCallback onRetry;
   @override
   Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      );
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 48),
+        const SizedBox(height: 8),
+        Text(message, textAlign: TextAlign.center),
+        const SizedBox(height: 16),
+        FilledButton(onPressed: onRetry, child: Text(context.tr('retry'))),
+      ],
+    ),
+  );
 }
 
 /// Profitability future provider (family).

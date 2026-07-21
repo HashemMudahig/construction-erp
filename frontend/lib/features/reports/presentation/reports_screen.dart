@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../projects/data/project_repository.dart';
 import 'report_providers.dart';
 
@@ -23,16 +24,27 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   static const _statuses = ['active', 'completed', 'on_hold', 'cancelled', 'planning'];
 
+  String _localizedStatus(BuildContext ctx, String s) {
+    final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+    if (s == 'active') return isAr ? 'نشط' : 'Active';
+    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
+    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
+    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
+    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
+    return s.replaceAll('_', ' ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: Text(context.tr('reports')),
         actions: [
           IconButton(
             icon: const Icon(Icons.download_outlined),
-            tooltip: 'Export (available in Sprint 05)',
+            tooltip: context.tr('export'),
             onPressed: null,
           ),
         ],
@@ -42,86 +54,225 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Report type selector
-            SegmentedButton<ReportType>(
-              segments: const [
-                ButtonSegment(value: ReportType.projectStatus, label: Text('Project Status')),
-                ButtonSegment(value: ReportType.financialSummary, label: Text('Financial')),
-                ButtonSegment(value: ReportType.expenseAnalysis, label: Text('Expenses')),
-              ],
-              selected: {_reportType},
-              onSelectionChanged: (selection) {
-                setState(() {
-                  _reportType = selection.first;
-                  _generated = false;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            // Filters row
+            // ── Report type chips ──────────────────────────────────────────
+            _SectionLabel(label: context.tr('report_type')),
+            const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _DateField(label: 'Start', date: _startDate, onPick: (d) => setState(() => _startDate = d))),
-                const SizedBox(width: 12),
-                Expanded(child: _DateField(label: 'End', date: _endDate, onPick: (d) => setState(() => _endDate = d))),
+                _TypeChip(
+                  label: context.tr('project_status_report'),
+                  icon: Icons.folder_open_outlined,
+                  selected: _reportType == ReportType.projectStatus,
+                  onTap: () => setState(() { _reportType = ReportType.projectStatus; _generated = false; }),
+                ),
+                const SizedBox(width: 8),
+                _TypeChip(
+                  label: context.tr('financial_report'),
+                  icon: Icons.bar_chart_outlined,
+                  selected: _reportType == ReportType.financialSummary,
+                  onTap: () => setState(() { _reportType = ReportType.financialSummary; _generated = false; }),
+                ),
+                const SizedBox(width: 8),
+                _TypeChip(
+                  label: context.tr('expense_report'),
+                  icon: Icons.receipt_long_outlined,
+                  selected: _reportType == ReportType.expenseAnalysis,
+                  onTap: () => setState(() { _reportType = ReportType.expenseAnalysis; _generated = false; }),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            // Project filter
+
+            const SizedBox(height: 20),
+
+            // ── Date filters ───────────────────────────────────────────────
+            _SectionLabel(label: isAr ? 'الفترة الزمنية' : 'Date Range'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _DateField(
+                  label: context.tr('filter_start'),
+                  date: _startDate,
+                  onPick: (d) => setState(() => _startDate = d),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _DateField(
+                  label: context.tr('filter_end'),
+                  date: _endDate,
+                  onPick: (d) => setState(() => _endDate = d),
+                )),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Project filter ─────────────────────────────────────────────
+            _SectionLabel(label: isAr ? 'المشروع' : 'Project'),
+            const SizedBox(height: 8),
             _ProjectDropdown(
               selected: _projectId,
               onChanged: (v) => setState(() => _projectId = v),
             ),
+
             if (_reportType == ReportType.projectStatus) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              _SectionLabel(label: context.tr('status')),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _statusFilter,
-                decoration: const InputDecoration(labelText: 'Status', isDense: true),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.filter_list),
+                  hintText: context.tr('all_statuses'),
+                ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All statuses')),
-                  ..._statuses.map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                  DropdownMenuItem(value: null, child: Text(context.tr('all_statuses'))),
+                  ..._statuses.map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(_localizedStatus(context, s)),
+                  )),
                 ],
                 onChanged: (v) => setState(() => _statusFilter = v),
               ),
             ],
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              icon: const Icon(Icons.assessment),
-              label: const Text('Generate'),
-              onPressed: () {
-                setState(() {
-                  _lastFilters = ReportFilters(
-                    type: _reportType,
-                    startDate: _startDate,
-                    endDate: _endDate,
-                    projectId: _projectId,
-                    status: _statusFilter,
-                  );
-                  _generated = true;
-                });
-              },
-            ),
+
             const SizedBox(height: 24),
-            // Results area
+
+            // ── Generate button ────────────────────────────────────────────
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.assessment_outlined),
+                label: Text(context.tr('generate'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _lastFilters = ReportFilters(
+                      type: _reportType,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                      projectId: _projectId,
+                      status: _statusFilter,
+                    );
+                    _generated = true;
+                  });
+                },
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Results area ───────────────────────────────────────────────
             if (_generated && _lastFilters != null)
               _ResultsArea(filters: _lastFilters!)
             else
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'Select a report type and filters, then Generate.',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
+              _HintView(hint: context.tr('report_hint')),
           ],
         ),
       ),
     );
   }
 }
+
+// ─── Section label ────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.bold,
+      letterSpacing: 0.3,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+    ),
+  );
+}
+
+// ─── Report type chip ─────────────────────────────────────────────────────────
+
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({required this.label, required this.icon, required this.selected, required this.onTap});
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: selected
+                ? [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))]
+                : [],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: selected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Hint view ────────────────────────────────────────────────────────────────
+
+class _HintView extends StatelessWidget {
+  const _HintView({required this.hint});
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.analytics_outlined, size: 56, color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+          const SizedBox(height: 16),
+          Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Date field ───────────────────────────────────────────────────────────────
 
 class _DateField extends StatelessWidget {
   const _DateField({required this.label, required this.date, required this.onPick});
@@ -141,15 +292,24 @@ class _DateField extends StatelessWidget {
         );
         if (picked != null) onPick(picked);
       },
+      borderRadius: BorderRadius.circular(10),
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, isDense: true),
-        child: Text(date == null
-            ? '—'
-            : '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}'),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          prefixIcon: const Icon(Icons.calendar_month_outlined, size: 18),
+        ),
+        child: Text(
+          date == null
+              ? '—'
+              : '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}',
+        ),
       ),
     );
   }
 }
+
+// ─── Project dropdown ─────────────────────────────────────────────────────────
 
 class _ProjectDropdown extends ConsumerStatefulWidget {
   const _ProjectDropdown({required this.selected, required this.onChanged});
@@ -184,15 +344,21 @@ class _ProjectDropdownState extends ConsumerState<_ProjectDropdown> {
     if (_loading) return const SizedBox.shrink();
     return DropdownButtonFormField<String>(
       value: widget.selected,
-      decoration: const InputDecoration(labelText: 'Project', isDense: true),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: const Icon(Icons.folder_outlined, size: 18),
+        hintText: context.tr('all_projects'),
+      ),
       items: [
-        const DropdownMenuItem(value: null, child: Text('All projects')),
-        ..._projects.map((p) => DropdownMenuItem(value: p.id, child: Text('${p.name} (${p.status})'))),
+        DropdownMenuItem(value: null, child: Text(context.tr('all_projects'))),
+        ..._projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))),
       ],
       onChanged: widget.onChanged,
     );
   }
 }
+
+// ─── Results area ─────────────────────────────────────────────────────────────
 
 class _ResultsArea extends ConsumerWidget {
   const _ResultsArea({required this.filters});
@@ -224,44 +390,151 @@ class _ResultsArea extends ConsumerWidget {
   }
 }
 
+// ─── Project Status Results ───────────────────────────────────────────────────
+
 class _ProjectStatusResults extends StatelessWidget {
   const _ProjectStatusResults({required this.data});
   final List data;
 
+  String _localizedStatus(BuildContext ctx, String s) {
+    final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+    if (s == 'active') return isAr ? 'نشط' : 'Active';
+    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
+    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
+    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
+    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
+    return s.replaceAll('_', ' ');
+  }
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'active': return Colors.green;
+      case 'completed': return Colors.blue;
+      case 'on_hold': return Colors.orange;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (data.isEmpty) return const _EmptyView();
-    return Card(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Project')), DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Budget'), numeric: true),
-            DataColumn(label: Text('Payments'), numeric: true),
-            DataColumn(label: Text('Expenses'), numeric: true),
-            DataColumn(label: Text('Balance'), numeric: true),
-            DataColumn(label: Text('Milestones')), DataColumn(label: Text('Progress')),
+    if (data.isEmpty) return _EmptyView(message: context.tr('no_data'));
+
+    final items = data.map((d) => ProjectStatusItem.fromJson(d as Map<String, dynamic>)).toList();
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Summary chips
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _StatPill(
+              label: context.tr('tab_milestones'),
+              value: '${items.length}',
+              color: theme.colorScheme.primary,
+              icon: Icons.folder_outlined,
+            ),
           ],
-          rows: data.map((d) {
-            final item = ProjectStatusItem.fromJson(d as Map<String, dynamic>);
-            return DataRow(cells: [
-              DataCell(Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Chip(label: Text(item.status))),
-              DataCell(Text(item.budget.toStringAsFixed(2))),
-              DataCell(Text(item.totalPayments.toStringAsFixed(2))),
-              DataCell(Text(item.totalExpenses.toStringAsFixed(2))),
-              DataCell(Text(item.balance.toStringAsFixed(2),
-                  style: TextStyle(color: item.balance < Decimal.zero ? Colors.red : Colors.green))),
-              DataCell(Text('${item.completedMilestones}/${item.milestoneCount}')),
-              DataCell(Text('${item.progressPct}%')),
-            ]);
-          }).toList(),
         ),
-      ),
+        const SizedBox(height: 16),
+        // Project cards
+        ...items.map((item) {
+          final statusColor = _statusColor(item.status);
+          final progress = item.progressPct.toDouble() / 100.0;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(item.name,
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _localizedStatus(context, item.status),
+                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Progress bar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                             value: progress.clamp(0.0, 1.0),
+                            minHeight: 7,
+                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                            valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('${item.progressPct}%',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: statusColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Budget / Payments / Expenses row
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 4,
+                    children: [
+                      _MiniStat(label: context.tr('budget'), value: _fmt(item.budget), color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                      _MiniStat(label: context.tr('total_payments'), value: _fmt(item.totalPayments), color: Colors.green),
+                      _MiniStat(label: context.tr('total_expenses'), value: _fmt(item.totalExpenses), color: Colors.red),
+                      _MiniStat(
+                        label: context.tr('balance'),
+                        value: _fmt(item.balance),
+                        color: item.balance < Decimal.zero ? Colors.red : Colors.teal,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${context.tr('milestones_progress')}: ${item.completedMilestones}/${item.milestoneCount}',
+                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
+
+  String _fmt(Decimal d) => d.toStringAsFixed(2);
 }
+
+// ─── Financial Summary Results ────────────────────────────────────────────────
 
 class _FinancialSummaryResults extends StatelessWidget {
   const _FinancialSummaryResults({required this.data});
@@ -272,47 +545,70 @@ class _FinancialSummaryResults extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Summary cards
+        // KPI cards row
         Row(
           children: [
-            Expanded(child: _SummaryCard(label: 'Income', value: data.totalIncome.toStringAsFixed(2), color: Colors.green)),
-            const SizedBox(width: 8),
-            Expanded(child: _SummaryCard(label: 'Expenses', value: data.totalExpenses.toStringAsFixed(2), color: Colors.red)),
-            const SizedBox(width: 8),
-            Expanded(child: _SummaryCard(
-              label: 'Net', value: data.net.toStringAsFixed(2),
-              color: data.net >= Decimal.zero ? Colors.green : Colors.red)),
+            Expanded(child: _KpiCard(label: context.tr('income'), value: data.totalIncome.toStringAsFixed(2),
+                color: Colors.green, icon: Icons.trending_up)),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(label: context.tr('total_expenses'), value: data.totalExpenses.toStringAsFixed(2),
+                color: Colors.red, icon: Icons.trending_down)),
+            const SizedBox(width: 10),
+            Expanded(child: _KpiCard(
+              label: context.tr('net'),
+              value: data.net.toStringAsFixed(2),
+              color: data.net >= Decimal.zero ? Colors.teal : Colors.red,
+              icon: data.net >= Decimal.zero ? Icons.account_balance_wallet_outlined : Icons.warning_amber_outlined,
+            )),
           ],
         ),
-        const SizedBox(height: 16),
-        // Per-project table
-        if (data.perProject.isEmpty)
-          const _EmptyView()
-        else
-          Card(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Project')),
-                  DataColumn(label: Text('Income'), numeric: true),
-                  DataColumn(label: Text('Expenses'), numeric: true),
-                  DataColumn(label: Text('Net'), numeric: true),
-                ],
-                rows: data.perProject.map((p) => DataRow(cells: [
-                  DataCell(Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(p.income.toStringAsFixed(2))),
-                  DataCell(Text(p.expenses.toStringAsFixed(2))),
-                  DataCell(Text(p.net.toStringAsFixed(2),
-                      style: TextStyle(color: p.net < Decimal.zero ? Colors.red : Colors.green))),
-                ])).toList(),
-              ),
-            ),
-          ),
+        const SizedBox(height: 20),
+        if (data.perProject.isNotEmpty) ...[
+          _SectionLabel(label: context.tr('by_project')),
+          const SizedBox(height: 10),
+          ...data.perProject.map((p) => _FinancialProjectRow(project: p)),
+        ] else
+          _EmptyView(message: context.tr('no_data')),
       ],
     );
   }
 }
+
+class _FinancialProjectRow extends StatelessWidget {
+  const _FinancialProjectRow({required this.project});
+  final ProjectFinancial project;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isPositive = project.net >= Decimal.zero;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold))),
+          _MiniStat(label: context.tr('income'), value: project.income.toStringAsFixed(2), color: Colors.green),
+          const SizedBox(width: 16),
+          _MiniStat(label: context.tr('total_expenses'), value: project.expenses.toStringAsFixed(2), color: Colors.red),
+          const SizedBox(width: 16),
+          _MiniStat(
+            label: context.tr('net'),
+            value: project.net.toStringAsFixed(2),
+            color: isPositive ? Colors.teal : Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Expense Analysis Results ─────────────────────────────────────────────────
 
 class _ExpenseAnalysisResults extends StatelessWidget {
   const _ExpenseAnalysisResults({required this.data});
@@ -323,99 +619,199 @@ class _ExpenseAnalysisResults extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SummaryCard(label: 'Grand Total', value: data.grandTotal.toStringAsFixed(2), color: Colors.orange),
-        const SizedBox(height: 16),
-        if (data.byCategory.isEmpty)
-          const _EmptyView()
-        else ...[
-          // Category breakdown table
-          Text('By Category', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: data.byCategory.map((c) => ListTile(
-                title: Text(c.category),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(c.total.toStringAsFixed(2)),
-                    const SizedBox(width: 12),
-                    SizedBox(width: 60, child: Text('${c.percentage}%', textAlign: TextAlign.right,
-                        style: const TextStyle(fontWeight: FontWeight.bold))),
-                  ],
-                ),
-                leading: _CategoryBar(percentage: c.percentage.toDouble()),
-              )).toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // By project
-          Text('By Project', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: data.byProject.map((p) => ExpansionTile(
-                title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                trailing: Text(p.total.toStringAsFixed(2)),
-                children: p.byCategory.map((c) => ListTile(
-                  dense: true,
-                  title: Text(c.category),
-                  trailing: Text('${c.total.toStringAsFixed(2)}  (${c.percentage}%)'),
-                )).toList(),
-              )).toList(),
-            ),
-          ),
-        ],
+        _KpiCard(
+          label: context.tr('grand_total'),
+          value: data.grandTotal.toStringAsFixed(2),
+          color: Colors.orange,
+          icon: Icons.receipt_long_outlined,
+        ),
+        const SizedBox(height: 20),
+        if (data.byCategory.isNotEmpty) ...[
+          _SectionLabel(label: context.tr('by_category')),
+          const SizedBox(height: 10),
+          ...data.byCategory.map((c) => _CategoryBar(item: c)),
+          const SizedBox(height: 20),
+          _SectionLabel(label: context.tr('by_project')),
+          const SizedBox(height: 10),
+          ...data.byProject.map((p) => _ProjectExpansionTile(project: p)),
+        ] else
+          _EmptyView(message: context.tr('no_data')),
       ],
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.label, required this.value, required this.color});
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Text(label, style: TextStyle(color: color, fontSize: 12)),
-              const SizedBox(height: 4),
-              Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            ],
-          ),
-        ),
-      );
-}
-
 class _CategoryBar extends StatelessWidget {
-  const _CategoryBar({required this.percentage});
-  final double percentage;
+  const _CategoryBar({required this.item});
+  final CategoryBreakdown item;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 40, height: 40,
-      child: CircularProgressIndicator(
-        value: percentage / 100,
-        strokeWidth: 4,
-        backgroundColor: Colors.grey.shade200,
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(item.category, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text('${item.percentage}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (item.percentage.toDouble() / 100.0)
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+              minHeight: 7,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(item.total.toStringAsFixed(2),
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
+        ],
       ),
     );
   }
 }
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
+class _ProjectExpansionTile extends StatelessWidget {
+  const _ProjectExpansionTile({required this.project});
+  final ProjectExpense project;
+
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: Text('No data for the selected filters.')),
-      );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text(project.total.toStringAsFixed(2),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+        children: project.byCategory.map((c) => ListTile(
+          dense: true,
+          title: Text(c.category),
+          trailing: Text('${c.total.toStringAsFixed(2)}  (${c.percentage}%)',
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.65))),
+        )).toList(),
+      ),
+    );
+  }
+}
+
+// ─── Shared widgets ───────────────────────────────────────────────────────────
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({required this.label, required this.value, required this.color, required this.icon});
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(color: color.withValues(alpha: 0.75), fontSize: 11)),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({required this.label, required this.value, required this.color, required this.icon});
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text('$value $label', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+      ],
+    ),
+  );
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({required this.label, required this.value, required this.color});
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+    ],
+  );
+}
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Center(
+        child: Text(message,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
+        ),
+      ),
+    );
+  }
 }
 
 class _ErrorView extends StatelessWidget {
@@ -424,17 +820,17 @@ class _ErrorView extends StatelessWidget {
   final VoidCallback onRetry;
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: onRetry, child: const Text('Retry')),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red),
+          const SizedBox(height: 8),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: onRetry, child: Text(context.tr('retry'))),
+        ],
+      ),
+    ),
+  );
 }
