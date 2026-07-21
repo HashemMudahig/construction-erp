@@ -24,7 +24,7 @@ class ConstructionErpApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: "Construction ERP",
-      
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       routerConfig: router,
       locale: locale,
