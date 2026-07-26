@@ -110,3 +110,16 @@ The following questions were previously "Decision Required" and are now resolved
 - Dashboard values remain derived; no result table is permitted.
 - No audit/activity entry is fabricated; the UI truthfully presents project
   overview and an unavailable state.
+
+# Phase 09 decisions — 2026-07-26
+
+- Reports remain derived and no report-result table is permitted.
+- Only Project Status, Financial Summary, and Expense Analysis are implemented.
+- Active financial rows and their stored converted-YER snapshots are authoritative.
+- Financial date ranges are inclusive and date-only.
+- Payments minus Expenses is **Net cash flow**, not profit, debt, receivable, or outstanding balance.
+- Payments and Expenses must be aggregated independently before Project joins.
+- Archived Clients retain historical report data.
+- Expense shares and Milestone progress use integer basis points with zero guards.
+- The existing disabled export action remains disabled; Phase 09 does not introduce an export engine or a hidden remote call.
+- The preserved FastAPI adapter is future-only; the runtime provider is local.

@@ -56,3 +56,18 @@
 - No recent activity is fabricated and active providers contain no Dio path.
 - Validation confirmed all focused and full test suites pass. The exact analyzer
   command exits 0 with no findings, so Phase 08 is completed.
+
+# Phase 09 risk update — 2026-07-26
+
+- Inclusive ISO date-only predicates and boundary tests mitigate off-by-one,
+  timezone-shift, month/year-boundary, single-day, and leap-day risks.
+- Separate grouped Payment and Expense subqueries mitigate Cartesian multiplication.
+- Explicit `is_deleted = 0` predicates mitigate deleted-row inclusion.
+- Stored converted-YER snapshots prevent historical-rate recalculation.
+- Integer YER totals and basis-point ratios avoid mixed-scale and division-by-zero errors.
+- Typed filters, provider-family equality, and mutation invalidation mitigate stale results.
+- Ten RTL/LTR viewport tests mitigate responsive overflow.
+- The export action remains disabled, preventing hidden remote export calls.
+- The active Reports provider has no Dio dependency; the API adapter is explicitly preserved and inactive.
+- Net-cash-flow naming prevents invented profit, receivable, or debt semantics.
+- SQLite/Dart int64 aggregate limits remain a deployment-monitoring risk.

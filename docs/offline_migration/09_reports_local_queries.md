@@ -2,12 +2,12 @@
 
 ## Status
 
-- Status: Draft
+- Status: Completed
 - Owner: Unassigned
 - Created: 2026-07-22
-- Last updated: 2026-07-22
-- Implementation started: Not started
-- Implementation completed: Not started
+- Last updated: 2026-07-26
+- Implementation started: 2026-07-26
+- Implementation completed: 2026-07-26
 
 ## Objective
 
@@ -91,18 +91,18 @@ ReportsScreen
 
 ## Implementation Tasks
 
-- [ ] Define `ReportQueryService` class.
-- [ ] Implement `getProjectStatus(projectId?, status?)` — per-project metrics with milestone progress.
-- [ ] Implement `getFinancialSummary(startDate?, endDate?)` — totals and per-project breakdown.
-- [ ] Implement `getExpenseAnalysis(startDate?, endDate?, projectId?)` — category and project breakdowns with percentages.
-- [ ] Ensure all Decimal arithmetic uses the `decimal` package (no double conversion).
-- [ ] Migrate `reportResultProvider` to use `ReportQueryService`.
-- [ ] Refactor provider to return typed DTOs instead of raw `Map<String, dynamic>`.
-- [ ] Update `reports_screen.dart` to consume typed DTOs.
-- [ ] Write unit tests for report query service.
-- [ ] Write tests with known data sets and expected values.
-- [ ] Run `flutter analyze`.
-- [ ] Verify reports screen renders correctly with local data.
+- [x] Define the Reports repository interface and local query service.
+- [x] Implement `getProjectStatus(projectId?, status?)` — per-project metrics with milestone progress.
+- [x] Implement `getFinancialSummary(startDate?, endDate?)` — totals and per-project breakdown.
+- [x] Implement `getExpenseAnalysis(startDate?, endDate?, projectId?)` — category and project breakdowns with percentages.
+- [x] Keep authoritative financial arithmetic integer-based with no `double`.
+- [x] Migrate `reportResultProvider` to the local Reports repository.
+- [x] Refactor the provider to return typed domain results instead of raw maps.
+- [x] Update `reports_screen.dart` to consume typed domain results.
+- [x] Write focused data and architecture tests.
+- [x] Write deterministic filter, aggregation, snapshot, and responsive tests.
+- [x] Run `flutter analyze`.
+- [x] Verify Reports across local loading/error/empty states and RTL/LTR viewports.
 
 ## Validation Plan
 
@@ -145,11 +145,31 @@ See [risk_register.md](risk_register.md). Key risks:
 
 ## Completion Record
 
-- Completion date: Not completed
-- Commands executed: None
-- Tests passed: N/A
-- Analyzer result: N/A
-- Files created: None
-- Files modified: None
-- Remaining issues: None
+- Completion date: 2026-07-26
+- Commands executed: formatter, exact analyzer, focused Reports and responsive tests, Phase 03–08/database/contract regressions, full Flutter suite, FastAPI baseline, and Git validation.
+- Tests passed: Reports 27; Dashboard 18; Clients 36; Projects 30; Milestones 30; Payments 35; Expenses 40; database 75; contract 49; full Flutter 343; FastAPI baseline 17.
+- Analyzer result: `flutter analyze --no-pub` exited 0 with no findings.
+- Files created: typed report filters/models/interface, local and API adapters, ReportsDao, and focused data/widget tests.
+- Files modified: Reports providers/screen, mutation providers, characterization tests, migration documentation, and histories.
+- Remaining issues: Export remains intentionally unavailable because no local or server export implementation existed. Phase 10 was not started.
 - Git commit: Not created by agent
+
+## Phase 09 implementation record — 2026-07-26
+
+- Verified report sections: Project Status, Financial Summary, and Expense Analysis only.
+- Active path: `ReportsScreen → Riverpod → ReportsRepositoryInterface → LocalReportsRepository → ReportsDao → AppDatabase → SQLite`.
+- `ApiReportsRepository` preserves the three FastAPI endpoints but is not the runtime default.
+- Report results are derived and are never persisted in a result table.
+- Unified totals use each active transaction's stored `converted_yer_amount`.
+- Soft-deleted Payments and Expenses are excluded.
+- Financial ranges use inclusive date-only comparisons against `payment_date` and `expense_date`; invalid ranges fail clearly.
+- Project and status filters are typed, validated, local, and combined with logical AND.
+- Archived Clients retain reportable historical Projects.
+- Payments and Expenses are aggregated separately before joining Projects.
+- Payments minus Expenses is named **Net cash flow / صافي التدفق النقدي**.
+- Milestone progress counts only completed Milestones and uses basis points with a zero-total guard.
+- Expense category shares use integer basis points and convert to `double` only at the progress-indicator boundary.
+- The existing disabled export action remains disabled; no hidden Dio export request exists.
+- Relevant local mutations invalidate all Reports provider families.
+- Responsive validation passed at 320×640, 390×844, 600×900, 800×1280, and 1440×900 in both RTL and LTR.
+- No Settings, Security, Backup, Restore, synchronization, router, or FastAPI production work was performed.

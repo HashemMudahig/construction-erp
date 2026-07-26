@@ -4,6 +4,7 @@ import '../data/local_client_repository.dart';
 import '../domain/client_entity.dart';
 import '../domain/client_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime client repository provider.
 ///
@@ -60,6 +61,7 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
           );
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return true;
     } catch (e) {
       _lastError = e.toString();
@@ -88,6 +90,7 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
           );
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return true;
     } catch (e) {
       _lastError = e.toString();
@@ -100,6 +103,7 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
       await ref.read(clientRepositoryProvider).deleteIfEligible(id);
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return null;
     } catch (e) {
       return e.toString();

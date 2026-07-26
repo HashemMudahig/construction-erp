@@ -4,6 +4,7 @@ import '../data/local_project_repository.dart';
 import '../domain/project_entity.dart';
 import '../domain/project_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime project repository provider.
 ///
@@ -76,6 +77,7 @@ class ProjectsListNotifier extends AsyncNotifier<List<ProjectEntity>> {
           );
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return null;
     } catch (e) {
       return e.toString();
@@ -111,6 +113,7 @@ class ProjectsListNotifier extends AsyncNotifier<List<ProjectEntity>> {
           );
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return null;
     } catch (e) {
       return e.toString();
@@ -122,6 +125,7 @@ class ProjectsListNotifier extends AsyncNotifier<List<ProjectEntity>> {
       await ref.read(projectRepositoryProvider).deleteIfEligible(id);
       await refresh();
       invalidateDashboard(ref);
+      invalidateReports(ref);
       return null;
     } catch (e) {
       return e.toString();

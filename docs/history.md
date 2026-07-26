@@ -1,5 +1,15 @@
 # Project History
 
+## 2026-07-26 — Phase 09 Reports Local Queries
+
+- Completed local Project Status, Financial Summary, and Expense Analysis reports.
+- Reports no longer require FastAPI or JWT; the remote adapter remains preserved.
+- Historical converted-YER snapshots, soft-delete exclusion, inclusive dates,
+  local Project/status filters, and safe separate aggregation are verified.
+- Net cash flow terminology replaces misleading generic net/balance labels.
+- Validation: Reports 27, full Flutter 343, FastAPI baseline 17, analyzer clean.
+- Phase 10 remains Ready and was not started.
+
 ## 2026-07-26 — Phase 08 Dashboard Local Queries
 
 - Completed the Dashboard migration to derived local Drift/SQLite queries with

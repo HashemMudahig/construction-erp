@@ -4,6 +4,7 @@ import '../data/local_milestone_repository.dart';
 import '../domain/milestone_entity.dart';
 import '../domain/milestone_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime milestone repository provider.
 ///
@@ -43,6 +44,7 @@ class MilestoneActions {
           );
       _ref.invalidate(milestonesByProjectProvider(projectId));
       invalidateDashboard(_ref);
+      invalidateReports(_ref);
       return null;
     } catch (e) {
       return e.toString();
@@ -69,6 +71,7 @@ class MilestoneActions {
         _ref.invalidate(milestonesByProjectProvider(projectId));
       }
       invalidateDashboard(_ref);
+      invalidateReports(_ref);
       return null;
     } catch (e) {
       return e.toString();
@@ -82,6 +85,7 @@ class MilestoneActions {
         _ref.invalidate(milestonesByProjectProvider(projectId));
       }
       invalidateDashboard(_ref);
+      invalidateReports(_ref);
       return null;
     } catch (e) {
       return e.toString();
@@ -95,6 +99,7 @@ class MilestoneActions {
         _ref.invalidate(milestonesByProjectProvider(projectId));
       }
       invalidateDashboard(_ref);
+      invalidateReports(_ref);
       return null;
     } catch (e) {
       return e.toString();

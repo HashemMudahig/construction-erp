@@ -1,6 +1,6 @@
 # Offline Migration Documentation
 
-> **Status: In progress — Phases 01 through 08 are completed; Phase 09 is ready.**
+> **Status: In progress — Phases 01 through 09 are completed; Phase 10 is ready.**
 
 This documentation set describes the planned migration of the Construction ERP Flutter frontend from a server-dependent architecture (FastAPI + PostgreSQL) to a local-first, fully offline, single-user, single-device application using Drift and SQLite.
 
@@ -62,8 +62,8 @@ The Construction ERP currently requires a running FastAPI backend with PostgreSQ
 | 06 | [Payments Local Storage](06_payments_local_storage.md) | Completed | Phase 04 | Yes |
 | 07 | [Expenses Local Storage](07_expenses_local_storage.md) | Completed | Phase 04 | Yes |
 | 08 | [Dashboard Local Queries](08_dashboard_local_queries.md) | Completed | Phases 03–07 | Yes |
-| 09 | [Reports Local Queries](09_reports_local_queries.md) | Ready | Phases 03–07 | No |
-| 10 | [Settings and Local Security](10_settings_and_local_security.md) | Draft | Phase 02 | No |
+| 09 | [Reports Local Queries](09_reports_local_queries.md) | Completed | Phases 03–07 | Yes |
+| 10 | [Settings and Local Security](10_settings_and_local_security.md) | Ready | Phase 02 | No |
 | 11 | [Backup and Restore](11_backup_and_restore.md) | Draft | Phase 02 | No |
 | 12 | [Remove Runtime API Dependency](12_remove_runtime_api_dependency.md) | Draft | Phases 03–09 | No |
 | 13 | [Offline Release Validation](13_offline_release_validation.md) | Draft | Phase 12 | No |

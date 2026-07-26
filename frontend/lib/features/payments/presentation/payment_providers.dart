@@ -5,6 +5,7 @@ import '../data/local_payment_repository.dart';
 import '../domain/payment_entity.dart';
 import '../domain/payment_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime payment repository provider.
 ///
@@ -117,6 +118,7 @@ class PaymentActions {
     // Also invalidate project financial summary
     ref.invalidate(projectFinancialSummaryProvider(projectId));
     invalidateDashboard(ref);
+    invalidateReports(ref);
   }
 }
 

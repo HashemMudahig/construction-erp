@@ -5,6 +5,7 @@ import '../data/local_expense_repository.dart';
 import '../domain/expense_entity.dart';
 import '../domain/expense_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime expense repository provider.
 ///
@@ -116,6 +117,7 @@ class ExpenseActions {
     ref.invalidate(expensesByProjectProvider(projectId));
     ref.invalidate(projectFinancialSummaryProvider(projectId));
     invalidateDashboard(ref);
+    invalidateReports(ref);
   }
 }
 

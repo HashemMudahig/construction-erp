@@ -7,7 +7,19 @@ Dashboard now resolves through `DashboardRepositoryInterface`,
 `ApiDashboardRepository` is a future remote adapter and is not the runtime
 default. All Dashboard results are derived and never persisted.
 
-> **Status: Planned — Not yet implemented.**
+## Phase 09 active Reports adapter
+
+Reports now resolve through `ReportsRepositoryInterface`,
+`LocalReportsRepository`, and the read-only `ReportsDao`. The active provider
+has no Dio or JWT dependency. `ApiReportsRepository` preserves the existing
+FastAPI endpoints for future remote use and is not the runtime default.
+
+The screen consumes typed domain results and never accesses `AppDatabase`,
+Drift rows, DAOs, or HTTP responses. Project Status, Financial Summary, and
+Expense Analysis remain on-demand derived queries; no report-result table
+exists.
+
+> **Status: Partially implemented — Phases 01 through 09 completed.**
 
 This document describes the target architecture for the offline migration. It does not replace [../architecture.md](../architecture.md), which describes the current architecture. The two documents are linked.
 

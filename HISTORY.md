@@ -1,5 +1,15 @@
 # Project History
 
+## 2026-07-26 — Phase 09 Reports Local Queries Completed
+
+- Migrated the three verified Reports sections to local Drift-derived queries.
+- Added typed filters/results, `ReportsRepositoryInterface`,
+  `LocalReportsRepository`, `ReportsDao`, and a preserved inactive FastAPI adapter.
+- Enforced active converted-YER snapshots, inclusive dates, independent finance
+  aggregates, Net cash flow naming, and mutation invalidation.
+- Validation: analyzer 0 findings; Reports 27; full Flutter 343; FastAPI 17.
+- Phase 10 was not started. No branch or commit was created.
+
 This file records notable updates made across the Construction ERP workspace.
 
 ## 2026-07-26

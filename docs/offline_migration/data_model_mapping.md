@@ -368,3 +368,24 @@ Per ADR-005, the local database adds multi-currency support. The following field
   cash flow, and canonical `YYYY-MM` key.
 - These are query results, not tables; authoritative money never uses `double`
   or SQLite `REAL`.
+
+# Phase 09 Reports derived contracts
+
+Reports are derived domain results and are not SQLite tables.
+
+| Contract | Exact fields and source |
+|---|---|
+| `ReportFilters` | `type`, inclusive date-only `startDate`/`endDate`, optional UUID `projectId`, optional verified Project `status` |
+| `ProjectStatusReportRow` | Project identity/status, original budget minor units/currency, active converted-YER Payment/Expense totals, Milestone counts, derived net cash flow and progress basis points |
+| `FinancialSummaryReport` | Inclusive date range, active converted-YER Payment/Expense totals, derived net cash flow, per-Project rows |
+| `ExpenseAnalysisReport` | Inclusive date range, optional Project, converted-YER grand total, category and Project/category rows |
+| `ExpenseCategoryReportRow` | Category, exact converted-YER total, integer share basis points with zero guard |
+
+- Authoritative report money is Dart `int` backed by SQLite INTEGER.
+- Unified YER totals use stored `converted_yer_amount`; historical rates are not recalculated.
+- `payment_date` and `expense_date` are the financial-period fields.
+- Soft-deleted financial rows are excluded.
+- Project financial aggregates group Payments and Expenses independently.
+- Archived Client status does not erase historical Project report rows.
+- `netCashFlowYer = totalPaymentsYer - totalExpensesYer`.
+- `double` is used only at the final progress-indicator boundary.

@@ -1,5 +1,20 @@
 # Frontend History
 
+## 2026-07-26 (Phase 09 — Reports Local Queries)
+
+### Phase 09 Completed
+
+- Added exact typed Reports domain models and filters, repository interface,
+  local repository, preserved API repository, and read-only Reports DAO.
+- Switched the runtime Reports provider from Dio/JWT to local Drift queries.
+- Implemented Project Status, Financial Summary, and Expense Analysis only.
+- Added inclusive dates, stored converted-YER totals, soft-delete exclusion,
+  independent financial aggregation, basis-point ratios, and mutation invalidation.
+- Updated Reports UI for typed local results, truthful local states, responsive
+  RTL/LTR rendering, SAR budget formatting, and Net cash flow terminology.
+- Tests: Reports 27; full Flutter 343; FastAPI baseline 17; analyzer 0 findings.
+- Export remains disabled. Phase 10 was not started.
+
 This file records notable updates made to the Construction ERP frontend.
 
 ## 2026-07-26 (Phase 08 — Dashboard Local Queries)

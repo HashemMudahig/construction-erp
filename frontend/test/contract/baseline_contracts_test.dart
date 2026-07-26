@@ -434,17 +434,26 @@ void main() {
   });
 
   group('Report DTOs contract', () {
-    test('ProjectStatusItem.fromJson parses all fields', () {
-      final item =
-          ProjectStatusItem.fromJson(BaselineFixtures.projectStatusItemJson());
+    test('local ProjectStatusReportRow uses exact integer snapshots', () {
+      const item = ProjectStatusReportRow(
+        projectId: BaselineFixtures.projectActiveId,
+        name: 'Project',
+        status: 'active',
+        budgetAmountMinor: 1500000,
+        budgetCurrency: 'YER',
+        totalPaymentsYer: 500000,
+        totalExpensesYer: 150000,
+        milestoneCount: 3,
+        completedMilestones: 1,
+      );
       expect(item.projectId, BaselineFixtures.projectActiveId);
-      expect(item.budget, Decimal.parse('1500000.00'));
-      expect(item.totalPayments, Decimal.parse('500000.00'));
-      expect(item.totalExpenses, Decimal.parse('150000.50'));
-      expect(item.balance, Decimal.parse('349999.50'));
+      expect(item.budgetAmountMinor, 1500000);
+      expect(item.totalPaymentsYer, 500000);
+      expect(item.totalExpensesYer, 150000);
+      expect(item.netCashFlowYer, 350000);
       expect(item.milestoneCount, 3);
       expect(item.completedMilestones, 1);
-      expect(item.progressPct, Decimal.parse('33.33'));
+      expect(item.progressBasisPoints, 3333);
     });
 
     test('ReportType enum has three values', () {
@@ -455,7 +464,7 @@ void main() {
     });
 
     test('ReportFilters defaults to projectStatus', () {
-      final filters = ReportFilters();
+      const filters = ReportFilters();
       expect(filters.type, ReportType.projectStatus);
       expect(filters.startDate, isNull);
       expect(filters.endDate, isNull);
@@ -465,14 +474,14 @@ void main() {
       final filters = ReportFilters(
         startDate: DateTime(2026, 3, 15),
       );
-      expect(filters.startDateStr, '2026-03-15');
+      expect(filters.startDateIso, '2026-03-15');
     });
 
     test('ReportFilters.endDateStr formats as YYYY-MM-DD', () {
       final filters = ReportFilters(
         endDate: DateTime(2026, 12, 31),
       );
-      expect(filters.endDateStr, '2026-12-31');
+      expect(filters.endDateIso, '2026-12-31');
     });
   });
 
