@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/milestone_dto.dart';
 import '../domain/milestone_entity.dart';
 import 'milestone_providers.dart';
 
@@ -12,7 +11,8 @@ class MilestoneFormDialog extends ConsumerStatefulWidget {
   final MilestoneEntity? milestone;
 
   @override
-  ConsumerState<MilestoneFormDialog> createState() => _MilestoneFormDialogState();
+  ConsumerState<MilestoneFormDialog> createState() =>
+      _MilestoneFormDialogState();
 }
 
 class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
@@ -52,28 +52,29 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
     }
     setState(() => _saving = true);
     final actions = ref.read(milestoneActionsProvider);
-    final fmt = (DateTime d) =>
+    String fmt(DateTime d) =>
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
     String? err;
     if (_isEdit) {
       err = await actions.update(
-        widget.milestone!.id,
-        MilestoneUpdateDto(
-          title: _title.text.trim(),
-          description: _description.text.trim().isEmpty ? null : _description.text.trim(),
-          dueDate: fmt(_dueDate!),
-          status: _status,
-        ),
-      );
-    } else {
-      err = await actions.create(MilestoneCreateDto(
-        projectId: widget.projectId!,
+        id: widget.milestone!.id,
         title: _title.text.trim(),
-        description: _description.text.trim().isEmpty ? null : _description.text.trim(),
+        description:
+            _description.text.trim().isEmpty ? null : _description.text.trim(),
         dueDate: fmt(_dueDate!),
         status: _status,
-      ));
+        projectId: widget.projectId,
+      );
+    } else {
+      err = await actions.create(
+        projectId: widget.projectId!,
+        title: _title.text.trim(),
+        description:
+            _description.text.trim().isEmpty ? null : _description.text.trim(),
+        dueDate: fmt(_dueDate!),
+        status: _status,
+      );
     }
     setState(() => _saving = false);
     if (err == null && mounted) {
@@ -96,7 +97,9 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
               TextFormField(
                 controller: _title,
                 decoration: const InputDecoration(labelText: 'Title *'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Title is required'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -123,15 +126,20 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
                 ),
               ),
               if (_dueDate == null)
-                const Padding(padding: EdgeInsets.only(top: 4), child: Text('Due date is required', style: TextStyle(color: Colors.red, fontSize: 12))),
+                const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text('Due date is required',
+                        style: TextStyle(color: Colors.red, fontSize: 12))),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _status,
+                initialValue: _status,
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: const [
                   DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'in_progress', child: Text('In progress')),
-                  DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                  DropdownMenuItem(
+                      value: 'in_progress', child: Text('In progress')),
+                  DropdownMenuItem(
+                      value: 'completed', child: Text('Completed')),
                   DropdownMenuItem(value: 'overdue', child: Text('Overdue')),
                 ],
                 onChanged: (v) => setState(() => _status = v ?? 'pending'),
@@ -141,11 +149,16 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel')),
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : Text(_isEdit ? 'Update' : 'Create'),
         ),
       ],

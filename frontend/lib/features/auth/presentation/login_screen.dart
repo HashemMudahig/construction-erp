@@ -71,8 +71,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             icon: const Icon(Icons.language, size: 16),
-                            label: Text(ref.watch(localeProvider).languageCode == 'en' ? 'عربي' : 'EN'),
-                            onPressed: () => ref.read(localeProvider.notifier).toggleLocale(),
+                            label: Text(
+                                ref.watch(localeProvider).languageCode == 'en'
+                                    ? 'عربي'
+                                    : 'EN'),
+                            onPressed: () => ref
+                                .read(localeProvider.notifier)
+                                .toggleLocale(),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: const Size(50, 30),
@@ -84,7 +89,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
@@ -106,7 +112,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           context.tr('login_subtitle'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                             fontSize: 14,
                           ),
                         ),
@@ -125,7 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             if (s.isEmpty) return context.tr('email_required');
                             final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                             if (!re.hasMatch(s)) {
-                              return ref.read(localeProvider).languageCode == 'ar'
+                              return ref.read(localeProvider).languageCode ==
+                                      'ar'
                                   ? 'أدخل بريداً إلكترونياً صحيحاً'
                                   : 'Enter a valid email';
                             }
@@ -139,8 +147,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             labelText: context.tr('password'),
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
-                              icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscure = !_obscure),
+                              icon: Icon(_obscure
+                                  ? Icons.visibility
+                                  : Icons.visibility_off),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
                           ),
                           obscureText: _obscure,
@@ -156,19 +167,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.error.withValues(alpha: 0.1),
+                              color: theme.colorScheme.error
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline, color: theme.colorScheme.error, size: 20),
+                                Icon(Icons.error_outline,
+                                    color: theme.colorScheme.error, size: 20),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     session.error == 'Invalid email or password'
                                         ? context.tr('invalid_credentials')
                                         : session.error!,
-                                    style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
+                                    style: TextStyle(
+                                        color: theme.colorScheme.error,
+                                        fontSize: 13),
                                   ),
                                 ),
                               ],
@@ -181,8 +196,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: session.isLoading ? null : _submit,
                             child: session.isLoading
                                 ? const SizedBox(
-                                    height: 20, width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   )
                                 : Text(context.tr('login_button')),
                           ),

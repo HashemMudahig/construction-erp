@@ -1,47 +1,123 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/dio_provider.dart';
-import '../data/expense_dto.dart';
-import '../data/expense_repository.dart';
+import '../../projects/presentation/project_providers.dart';
+import '../data/local_expense_repository.dart';
 import '../domain/expense_entity.dart';
+import '../domain/expense_repository_interface.dart';
+import '../../dashboard/presentation/dashboard_providers.dart';
 
+/// Active runtime expense repository provider.
+///
+/// Uses [LocalExpenseRepository] (Drift/SQLite). The remote
+/// [ApiExpenseRepository] remains preserved as `apiExpenseRepositoryProvider`.
+final expenseRepositoryProvider = Provider<ExpenseRepositoryInterface>((ref) {
+  return ref.watch(localExpenseRepositoryProvider);
+});
+
+/// List active expenses by project — local, no Dio.
 final expensesByProjectProvider =
     FutureProvider.family<List<ExpenseEntity>, String>((ref, projectId) async {
   final repo = ref.read(expenseRepositoryProvider);
-  final dtos = await repo.list(projectId: projectId);
-  return dtos.map((d) => d.toEntity()).toList();
+  return repo.listByProject(projectId);
 });
 
 class ExpenseActions {
   ExpenseActions(this._ref);
   final Ref _ref;
 
-  Future<String?> create(ExpenseCreateDto dto) async {
+  Future<String?> create({
+    required String projectId,
+    String? expenseGroupId,
+    required String category,
+    required int originalAmountMinor,
+    required String originalCurrency,
+    int? exchangeRateScaled,
+    int? convertedYerAmount,
+    String rateSource = 'identity',
+    String? rateDate,
+    required String expenseDate,
+    String? notes,
+  }) async {
     try {
-      await _ref.read(expenseRepositoryProvider).create(dto);
+      await _ref.read(expenseRepositoryProvider).create(
+            projectId: projectId,
+            expenseGroupId: expenseGroupId,
+            category: category,
+            originalAmountMinor: originalAmountMinor,
+            originalCurrency: originalCurrency,
+            exchangeRateScaled: exchangeRateScaled,
+            convertedYerAmount: convertedYerAmount,
+            rateSource: rateSource,
+            rateDate: rateDate,
+            expenseDate: expenseDate,
+            notes: notes,
+          );
+      _invalidate(_ref, projectId);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
-  Future<String?> update(String id, ExpenseUpdateDto dto) async {
+  Future<String?> update({
+    required String id,
+    String? projectId,
+    String? category,
+    int? originalAmountMinor,
+    String? originalCurrency,
+    int? exchangeRateScaled,
+    int? convertedYerAmount,
+    String? rateSource,
+    String? rateDate,
+    String? expenseDate,
+    String? notes,
+  }) async {
     try {
-      await _ref.read(expenseRepositoryProvider).update(id, dto);
+      await _ref.read(expenseRepositoryProvider).update(
+            id: id,
+            category: category,
+            originalAmountMinor: originalAmountMinor,
+            originalCurrency: originalCurrency,
+            exchangeRateScaled: exchangeRateScaled,
+            convertedYerAmount: convertedYerAmount,
+            rateSource: rateSource,
+            rateDate: rateDate,
+            expenseDate: expenseDate,
+            notes: notes,
+          );
+      if (projectId != null) _invalidate(_ref, projectId);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
-  Future<String?> delete(String id) async {
+  Future<String?> softDelete(String id, {String? projectId}) async {
     try {
-      await _ref.read(expenseRepositoryProvider).delete(id);
+      await _ref.read(expenseRepositoryProvider).softDelete(id);
+      if (projectId != null) _invalidate(_ref, projectId);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
+  }
+
+  Future<String?> restore(String id, {String? projectId}) async {
+    try {
+      await _ref.read(expenseRepositoryProvider).restore(id);
+      if (projectId != null) _invalidate(_ref, projectId);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  void _invalidate(Ref ref, String projectId) {
+    ref.invalidate(expensesByProjectProvider(projectId));
+    ref.invalidate(projectFinancialSummaryProvider(projectId));
+    invalidateDashboard(ref);
   }
 }
 
-final expenseActionsProvider = Provider<ExpenseActions>((ref) => ExpenseActions(ref));
+final expenseActionsProvider =
+    Provider<ExpenseActions>((ref) => ExpenseActions(ref));

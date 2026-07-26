@@ -69,7 +69,7 @@ class AppLocalizations {
       'arabic': 'العربية',
       'english': 'English',
       'toggle_language': 'عربي',
-      
+
       // Auth / Login
       'login_title': 'Welcome Back',
       'login_subtitle': 'Sign in to manage your construction projects',
@@ -80,7 +80,7 @@ class AppLocalizations {
       'invalid_credentials': 'Invalid email or password',
       'email_required': 'Email is required',
       'password_required': 'Password is required',
-      
+
       // Dashboard
       'welcome_engineer': 'Eng. Ahmed Al-Omari',
       'total_net_profit': 'Total Net Profit',
@@ -96,7 +96,7 @@ class AppLocalizations {
       'record_payment': 'Record Payment',
       'total_projects': 'Total Projects',
       'financial_cards_title': 'Financial Overview',
-      
+
       // Clients Screen
       'search_clients': 'Search clients...',
       'add_client': 'Add Client',
@@ -112,7 +112,7 @@ class AppLocalizations {
       'delete_client': 'Delete Client',
       'confirm_delete_client': 'Are you sure you want to delete this client?',
       'delete': 'Delete',
-      
+
       // Projects Screen
       'search_projects': 'Search projects...',
       'add_project': 'Add Project',
@@ -136,7 +136,7 @@ class AppLocalizations {
       'progress': 'Progress',
       'collected': 'Collected',
       'remaining': 'Remaining',
-      
+
       // Milestones / Payments / Expenses Dialogs & Labels
       'title': 'Title',
       'amount': 'Amount',
@@ -146,7 +146,7 @@ class AppLocalizations {
       'status_pending': 'Pending',
       'notes': 'Notes',
       'category': 'Category',
-      
+
       // Reports Screen
       'financial_summary': 'Financial Summary',
       'total_budget': 'Total Budget',
@@ -204,7 +204,7 @@ class AppLocalizations {
       'arabic': 'العربية',
       'english': 'English',
       'toggle_language': 'English',
-      
+
       // Auth / Login
       'login_title': 'مرحباً بك مجدداً',
       'login_subtitle': 'سجل الدخول لإدارة مشاريع المقاولات الخاصة بك',
@@ -215,7 +215,7 @@ class AppLocalizations {
       'invalid_credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
       'email_required': 'البريد الإلكتروني مطلوب',
       'password_required': 'كلمة المرور مطلوبة',
-      
+
       // Dashboard
       'welcome_engineer': 'م. أحمد العمري',
       'total_net_profit': 'صافي الأرباح الإجمالية',
@@ -231,7 +231,7 @@ class AppLocalizations {
       'record_payment': 'تسجيل دفعة',
       'total_projects': 'إجمالي المشاريع',
       'financial_cards_title': 'الملخص المالي العام',
-      
+
       // Clients Screen
       'search_clients': 'البحث عن العملاء...',
       'add_client': 'إضافة عميل',
@@ -247,7 +247,7 @@ class AppLocalizations {
       'delete_client': 'حذف العميل',
       'confirm_delete_client': 'هل أنت متأكد من رغبتك في حذف هذا العميل؟',
       'delete': 'حذف',
-      
+
       // Projects Screen
       'search_projects': 'البحث عن المشاريع...',
       'add_project': 'إضافة مشروع',
@@ -271,7 +271,7 @@ class AppLocalizations {
       'progress': 'نسبة الإنجاز',
       'collected': 'المحصل',
       'remaining': 'المتبقي',
-      
+
       // Milestones / Payments / Expenses Dialogs & Labels
       'title': 'العنوان',
       'amount': 'المبلغ',
@@ -281,7 +281,7 @@ class AppLocalizations {
       'status_pending': 'معلق',
       'notes': 'الملاحظات',
       'category': 'الفئة',
-      
+
       // Reports Screen
       'financial_summary': 'الملخص المالي العام',
       'total_budget': 'إجمالي الميزانيات',

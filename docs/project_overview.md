@@ -28,3 +28,23 @@ Generate financial, project, and expense reports. Provide exportable summaries f
 3. Log payments and invoices tied to projects and clients.
 4. Record expenses and supplier costs under relevant projects.
 5. Use report dashboards for progress, budget variance, and financial status.
+
+## Deployment Target
+
+### Current State
+
+The application currently requires a running FastAPI backend with PostgreSQL. All data operations (CRUD, dashboard, reports) depend on HTTP communication with the server.
+
+### Planned Offline Migration
+
+> **Status: Planned — Implementation has not started.**
+
+The Flutter frontend is planned to become a single-user, single-device, fully offline application using a local SQLite database via the Drift ORM. Key characteristics:
+
+- **Single user:** One administrative user, no multi-tenant or RBAC complexity.
+- **Single device:** Data is stored locally on the device.
+- **No server requirement:** The application functions in airplane mode.
+- **No synchronization:** The first local release does not sync with a remote server.
+- **Backend preservation:** The FastAPI backend remains in the repository, preserved and buildable, as a possible future remote adapter.
+
+See [Offline Migration Documentation](offline_migration/README.md) for the full migration plan.

@@ -64,7 +64,8 @@ class AppTheme {
         ),
         filled: true,
         fillColor: surfaceColor,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -99,8 +100,8 @@ class AppTheme {
         ),
       ),
       dataTableTheme: DataTableThemeData(
-        headingRowColor: MaterialStateProperty.all(backgroundColor),
-        dataRowColor: MaterialStateProperty.all(surfaceColor),
+        headingRowColor: WidgetStateProperty.all(backgroundColor),
+        dataRowColor: WidgetStateProperty.all(surfaceColor),
         headingTextStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 13,

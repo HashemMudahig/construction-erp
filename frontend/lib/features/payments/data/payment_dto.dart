@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 
+import '../../../core/database/database_constants.dart';
 import '../domain/payment_entity.dart';
 
 class PaymentDto {
@@ -31,15 +32,24 @@ class PaymentDto {
         createdAt: json['created_at'] as String,
       );
 
-  PaymentEntity toEntity() => PaymentEntity(
-        id: id,
-        projectId: projectId,
-        amount: Decimal.parse(amount),
-        paymentDate: DateTime.tryParse('${paymentDate}T00:00:00') ?? DateTime.now(),
-        method: method,
-        notes: notes,
-        createdAt: DateTime.tryParse(createdAt) ?? DateTime.now(),
-      );
+  PaymentEntity toEntity() {
+    final amountDecimal = Decimal.parse(amount);
+    // Remote DTO assumes YER (scale 0) — convert to minor units
+    final minor = amountDecimal.toBigInt().toInt();
+    return PaymentEntity(
+      id: id,
+      projectId: projectId,
+      originalAmountMinor: minor,
+      originalCurrency: kCurrencyYer,
+      exchangeRateScaled: kIdentityExchangeRate,
+      convertedYerAmount: minor,
+      rateSource: kRateSourceIdentity,
+      paymentDate: DateTime.parse('${paymentDate}T00:00:00'),
+      method: method,
+      notes: notes,
+      createdAt: DateTime.parse(createdAt),
+    );
+  }
 }
 
 class PaymentCreateDto {

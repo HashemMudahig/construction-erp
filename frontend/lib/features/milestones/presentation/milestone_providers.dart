@@ -1,56 +1,106 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/dio_provider.dart';
-import '../data/milestone_dto.dart';
-import '../data/milestone_repository.dart';
+import '../data/local_milestone_repository.dart';
 import '../domain/milestone_entity.dart';
+import '../domain/milestone_repository_interface.dart';
+import '../../dashboard/presentation/dashboard_providers.dart';
 
+/// Active runtime milestone repository provider.
+///
+/// Uses [LocalMilestoneRepository] (Drift/SQLite). The remote
+/// [ApiMilestoneRepository] remains preserved as `apiMilestoneRepositoryProvider`.
+final milestoneRepositoryProvider =
+    Provider<MilestoneRepositoryInterface>((ref) {
+  return ref.watch(localMilestoneRepositoryProvider);
+});
+
+/// List milestones by project — local, no Dio.
 final milestonesByProjectProvider =
-    FutureProvider.family<List<MilestoneEntity>, String>((ref, projectId) async {
+    FutureProvider.family<List<MilestoneEntity>, String>(
+        (ref, projectId) async {
   final repo = ref.read(milestoneRepositoryProvider);
-  final dtos = await repo.list(projectId: projectId);
-  return dtos.map((d) => d.toEntity()).toList();
+  return repo.listByProject(projectId);
 });
 
 class MilestoneActions {
   MilestoneActions(this._ref);
   final Ref _ref;
 
-  Future<String?> create(MilestoneCreateDto dto) async {
+  Future<String?> create({
+    required String projectId,
+    required String title,
+    String? description,
+    required String dueDate,
+    String status = 'pending',
+  }) async {
     try {
-      await _ref.read(milestoneRepositoryProvider).create(dto);
+      await _ref.read(milestoneRepositoryProvider).create(
+            projectId: projectId,
+            title: title,
+            description: description,
+            dueDate: dueDate,
+            status: status,
+          );
+      _ref.invalidate(milestonesByProjectProvider(projectId));
+      invalidateDashboard(_ref);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
-  Future<String?> update(String id, MilestoneUpdateDto dto) async {
+  Future<String?> update({
+    required String id,
+    String? title,
+    String? description,
+    String? dueDate,
+    String? status,
+    String? projectId,
+  }) async {
     try {
-      await _ref.read(milestoneRepositoryProvider).update(id, dto);
+      await _ref.read(milestoneRepositoryProvider).update(
+            id: id,
+            title: title,
+            description: description,
+            dueDate: dueDate,
+            status: status,
+          );
+      if (projectId != null) {
+        _ref.invalidate(milestonesByProjectProvider(projectId));
+      }
+      invalidateDashboard(_ref);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
-  Future<String?> complete(String id) async {
+  Future<String?> complete(String id, {String? projectId}) async {
     try {
       await _ref.read(milestoneRepositoryProvider).complete(id);
+      if (projectId != null) {
+        _ref.invalidate(milestonesByProjectProvider(projectId));
+      }
+      invalidateDashboard(_ref);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
-  Future<String?> delete(String id) async {
+  Future<String?> delete(String id, {String? projectId}) async {
     try {
       await _ref.read(milestoneRepositoryProvider).delete(id);
+      if (projectId != null) {
+        _ref.invalidate(milestonesByProjectProvider(projectId));
+      }
+      invalidateDashboard(_ref);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 }
 
-final milestoneActionsProvider = Provider<MilestoneActions>((ref) => MilestoneActions(ref));
+final milestoneActionsProvider =
+    Provider<MilestoneActions>((ref) => MilestoneActions(ref));

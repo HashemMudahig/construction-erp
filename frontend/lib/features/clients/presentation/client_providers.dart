@@ -1,9 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/dio_provider.dart';
-import '../data/client_dto.dart';
-import '../data/client_repository.dart';
+import '../data/local_client_repository.dart';
 import '../domain/client_entity.dart';
+import '../domain/client_repository_interface.dart';
+import '../../dashboard/presentation/dashboard_providers.dart';
+
+/// Active runtime client repository provider.
+///
+/// Uses [LocalClientRepository] (Drift/SQLite). The remote
+/// [ApiClientRepository] remains preserved as `apiClientRepositoryProvider`
+/// for future use.
+final clientRepositoryProvider = Provider<ClientRepositoryInterface>((ref) {
+  return ref.watch(localClientRepositoryProvider);
+});
 
 /// Clients list async provider. Refreshable via ref.invalidate.
 final clientsListProvider =
@@ -20,8 +29,7 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
 
   Future<List<ClientEntity>> _fetch() async {
     final repo = ref.read(clientRepositoryProvider);
-    final dtos = await repo.list(search: _search);
-    return dtos.map((d) => d.toEntity()).toList();
+    return repo.list(search: _search);
   }
 
   Future<void> setSearch(String s) async {
@@ -35,35 +43,66 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
     state = await AsyncValue.guard(_fetch);
   }
 
-  Future<bool> create(ClientCreateDto dto) async {
+  Future<bool> create({
+    required String name,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+  }) async {
     try {
-      await ref.read(clientRepositoryProvider).create(dto);
+      await ref.read(clientRepositoryProvider).create(
+            name: name,
+            phone: phone,
+            email: email,
+            address: address,
+            notes: notes,
+          );
       await refresh();
+      invalidateDashboard(ref);
       return true;
-    } on ApiException catch (e) {
-      _lastError = e.message;
+    } catch (e) {
+      _lastError = e.toString();
       return false;
     }
   }
 
-  Future<bool> updateClient(String id, ClientUpdateDto dto) async {
+  Future<bool> updateClient(
+    String id, {
+    String? name,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+    bool? archived,
+  }) async {
     try {
-      await ref.read(clientRepositoryProvider).update(id, dto);
+      await ref.read(clientRepositoryProvider).update(
+            id: id,
+            name: name,
+            phone: phone,
+            email: email,
+            address: address,
+            notes: notes,
+            archived: archived,
+          );
       await refresh();
+      invalidateDashboard(ref);
       return true;
-    } on ApiException catch (e) {
-      _lastError = e.message;
+    } catch (e) {
+      _lastError = e.toString();
       return false;
     }
   }
 
   Future<String?> delete(String id) async {
     try {
-      await ref.read(clientRepositoryProvider).delete(id);
+      await ref.read(clientRepositoryProvider).deleteIfEligible(id);
       await refresh();
+      invalidateDashboard(ref);
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 
@@ -75,6 +114,9 @@ class ClientsListNotifier extends AsyncNotifier<List<ClientEntity>> {
 final clientDetailProvider =
     FutureProvider.family<ClientEntity, String>((ref, id) async {
   final repo = ref.read(clientRepositoryProvider);
-  final dto = await repo.get(id);
-  return dto.toEntity();
+  final client = await repo.getById(id);
+  if (client == null) {
+    throw StateError('Client not found: $id');
+  }
+  return client;
 });

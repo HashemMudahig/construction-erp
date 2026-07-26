@@ -42,12 +42,25 @@ class ProjectDto {
         clientId: clientId,
         name: name,
         description: description,
-        budget: Decimal.parse(budget),
-        startDate: startDate != null ? DateTime.tryParse('${startDate}T00:00:00') : null,
-        endDate: endDate != null ? DateTime.tryParse('${endDate}T00:00:00') : null,
+        budgetAmountMinor: _parseBudgetMinor(budget),
+        budgetCurrency: 'YER',
+        exchangePolicy: 'per_transaction',
+        fixedExchangeRateScaled: null,
+        startDate: startDate != null
+            ? DateTime.tryParse('${startDate}T00:00:00')
+            : null,
+        endDate:
+            endDate != null ? DateTime.tryParse('${endDate}T00:00:00') : null,
         status: status,
         createdAt: DateTime.tryParse(createdAt) ?? DateTime.now(),
       );
+
+  /// Parses a budget string to minor units (assuming YER scale 0 for remote DTO).
+  int _parseBudgetMinor(String budgetStr) {
+    final d = Decimal.tryParse(budgetStr);
+    if (d == null) return 0;
+    return d.toBigInt().toInt();
+  }
 }
 
 class ProjectCreateDto {

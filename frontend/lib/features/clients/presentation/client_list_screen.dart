@@ -37,7 +37,8 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
                 color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.people, color: theme.colorScheme.primary, size: 20),
+              child: Icon(Icons.people,
+                  color: theme.colorScheme.primary, size: 20),
             ),
             const SizedBox(width: 12),
             Text(context.tr('clients')),
@@ -71,7 +72,8 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
-                          width: 18, height: 18,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
@@ -93,12 +95,16 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
       ),
       body: clientsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorView(message: e.toString(), onRetry: () => ref.invalidate(clientsListProvider)),
+        error: (e, _) => _ErrorView(
+            message: e.toString(),
+            onRetry: () => ref.invalidate(clientsListProvider)),
         data: (clients) {
           if (clients.isEmpty) {
             final isAr = Localizations.localeOf(context).languageCode == 'ar';
             return _EmptyView(
-              message: isAr ? 'لا يوجد عملاء بعد. أضف عميلك الأول.' : 'No clients yet. Add your first client.',
+              message: isAr
+                  ? 'لا يوجد عملاء بعد. أضف عميلك الأول.'
+                  : 'No clients yet. Add your first client.',
               cta: context.tr('add_client'),
               onCta: () => context.go('/clients/new'),
             );
@@ -111,7 +117,10 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final c = clients[i];
-                return _ClientCard(client: c, theme: theme, onTap: () => context.go('/clients/${c.id}'));
+                return _ClientCard(
+                    client: c,
+                    theme: theme,
+                    onTap: () => context.go('/clients/${c.id}'));
               },
             ),
           );
@@ -136,7 +145,8 @@ class _ClientCard extends StatelessWidget {
   final ThemeData theme;
   final VoidCallback onTap;
 
-  const _ClientCard({required this.client, required this.theme, required this.onTap});
+  const _ClientCard(
+      {required this.client, required this.theme, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -172,16 +182,20 @@ class _ClientCard extends StatelessWidget {
                   children: [
                     Text(
                       client.name,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       [
-                        if (client.phone != null && client.phone!.isNotEmpty) client.phone!,
-                        if (client.email != null && client.email!.isNotEmpty) client.email!,
+                        if (client.phone != null && client.phone!.isNotEmpty)
+                          client.phone!,
+                        if (client.email != null && client.email!.isNotEmpty)
+                          client.email!,
                       ].join('  •  '),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -190,7 +204,8 @@ class _ClientCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: client.archived
                       ? theme.colorScheme.surfaceContainerHighest
@@ -199,8 +214,12 @@ class _ClientCard extends StatelessWidget {
                 ),
                 child: Text(
                   client.archived
-                      ? (Localizations.localeOf(context).languageCode == 'ar' ? 'مؤرشف' : 'Archived')
-                      : (Localizations.localeOf(context).languageCode == 'ar' ? 'نشط' : 'Active'),
+                      ? (Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'مؤرشف'
+                          : 'Archived')
+                      : (Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'نشط'
+                          : 'Active'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: client.archived
@@ -237,17 +256,23 @@ class _ErrorView extends StatelessWidget {
                   color: theme.colorScheme.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                child: Icon(Icons.error_outline,
+                    size: 48, color: theme.colorScheme.error),
               ),
               const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium),
               const SizedBox(height: 16),
               SizedBox(
                 height: 44,
                 child: ElevatedButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'إعادة المحاولة' : 'Retry'),
+                  label: Text(
+                      Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'إعادة المحاولة'
+                          : 'Retry'),
                 ),
               ),
             ],
@@ -259,7 +284,8 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.message, required this.cta, required this.onCta});
+  const _EmptyView(
+      {required this.message, required this.cta, required this.onCta});
   final String message;
   final String cta;
   final VoidCallback onCta;
@@ -279,10 +305,13 @@ class _EmptyView extends StatelessWidget {
                   color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(Icons.people_outline, size: 48, color: theme.colorScheme.primary),
+                child: Icon(Icons.people_outline,
+                    size: 48, color: theme.colorScheme.primary),
               ),
               const SizedBox(height: 16),
-              Text(message, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium),
               const SizedBox(height: 16),
               SizedBox(
                 height: 44,

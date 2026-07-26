@@ -119,3 +119,22 @@ This file records notable updates made to the Construction ERP backend.
 ### Migration
 
 - Created `alembic/versions/0002_financials.py`: milestones, payments, expenses tables with FK CASCADE, CHECK constraints, and indexes. Downgrade drops in reverse order.
+
+## 2026-07-22 (Phase 01 — Baseline and Contracts)
+
+### Phase 01 Completed
+
+- Created `backend/tests/test_baseline_contracts.py` with 17 contract tests verifying:
+  - Dashboard `outstanding_balances` is total net (R-023).
+  - Dashboard `total_clients` includes archived clients (R-024).
+  - Dashboard `projects_overview` balance formula and cartesian product defect (R-013).
+  - Dashboard finance timeline months and missing-months defect (R-022).
+  - Report `project_status` progress_pct, balance, and zero-milestone guard.
+  - Report `project_status` uses subqueries (no cartesian product, unlike dashboard).
+  - Profitability margin is ratio not percentage (R-025) and zero-payments guard.
+  - Client delete restriction (CLIENT_HAS_PROJECTS 409).
+  - Client archive behavior.
+  - Project delete cascade to milestones, payments, expenses.
+  - Expense analysis percentage formula and zero-total guard.
+- No backend production source code was modified.
+- `python -m pytest tests/test_baseline_contracts.py -v` → 17 passed.

@@ -45,3 +45,40 @@ The frontend uses a feature-based Flutter architecture.
 - SQLAlchemy provides ORM mapping for models and relationships.
 - Alembic manages schema migrations and versioning.
 - Repository layer isolates SQLAlchemy session usage from business logic.
+
+## Planned Offline Architecture
+
+> **Status: Planned — Not yet implemented. See [offline_migration/architecture_target.md](offline_migration/architecture_target.md) for full details.**
+
+The Flutter frontend is planned to become a local-first, fully offline application. The target architecture introduces a local SQLite database via the Drift ORM, with repository interfaces separating the UI from the data source.
+
+### Target Flow
+
+```
+Flutter UI (Screens)
+→ Riverpod (Providers)
+→ Domain Repository Interface
+├── Local Drift Repository (active runtime path)
+│   → DAO
+│   → AppDatabase
+│   → SQLite
+└── Preserved FastAPI Repository (future remote path)
+    → Dio
+    → FastAPI
+    → SQLAlchemy
+    → PostgreSQL
+```
+
+### Key Principles
+
+- No HTTP calls during local runtime.
+- Financial values stored as TEXT (Decimal strings), never as REAL.
+- UUIDs remain primary identifiers, stored as TEXT.
+- Foreign keys are mandatory (PRAGMA foreign_keys = ON).
+- Dashboard and reports are derived queries, not stored tables.
+- The FastAPI backend remains preserved and buildable.
+
+See:
+- [Target Architecture](offline_migration/architecture_target.md)
+- [Data Model Mapping](offline_migration/data_model_mapping.md)
+- [Offline Migration README](offline_migration/README.md)

@@ -1,4 +1,3 @@
-import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,8 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'dashboard_providers.dart';
+import '../domain/dashboard_models.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../auth/presentation/auth_provider.dart';
+
+String _formatYer(int amount, String languageCode) {
+  return NumberFormat.decimalPattern(languageCode == 'ar' ? 'ar' : 'en')
+      .format(amount);
+}
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -32,8 +36,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _buildAppBar(now, theme),
           SliverToBoxAdapter(child: _buildProfitCard(context, summaryAsync)),
           SliverToBoxAdapter(child: _buildKpiRow(context, summaryAsync)),
-          SliverToBoxAdapter(child: _buildActivitySection(context, projectsAsync)),
-          SliverToBoxAdapter(child: _buildFinancialCards(context, financeAsync)),
+          SliverToBoxAdapter(
+              child: _buildActivitySection(context, projectsAsync)),
+          SliverToBoxAdapter(
+              child: _buildFinancialCards(context, financeAsync)),
           SliverToBoxAdapter(child: _buildQuickActions(context)),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
@@ -43,8 +49,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildAppBar(DateTime now, ThemeData theme) {
     final locale = ref.watch(localeProvider);
-    final dateStr = DateFormat('EEEE, d MMMM yyyy', locale.languageCode == 'ar' ? 'ar_SA' : 'en_US').format(now);
-    
+    final dateStr = DateFormat('EEEE, d MMMM yyyy',
+            locale.languageCode == 'ar' ? 'ar_SA' : 'en_US')
+        .format(now);
+
     return SliverAppBar(
       floating: true,
       backgroundColor: const Color(0xFF1E293B),
@@ -77,18 +85,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onPressed: () => ref.read(localeProvider.notifier).toggleLocale(),
           child: Text(
             locale.languageCode == 'en' ? 'عربي' : 'EN',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
         ),
         // Logout action button
-        
-       
+
         const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildActionButton(IconData icon, {bool badge = false, VoidCallback? onPressed}) {
+  Widget _buildActionButton(IconData icon,
+      {bool badge = false, VoidCallback? onPressed}) {
     return Container(
       margin: const EdgeInsets.only(left: 8),
       decoration: BoxDecoration(
@@ -119,17 +128,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildProfitCard(BuildContext context, AsyncValue<dynamic> summaryAsync) {
+  Widget _buildProfitCard(
+      BuildContext context, AsyncValue<dynamic> summaryAsync) {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            const Color(0xFF1E3A5F),
-            const Color(0xFF2563EB),
+            Color(0xFF1E3A5F),
+            Color(0xFF2563EB),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -144,8 +154,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
       child: summaryAsync.when(
-        loading: () => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: Colors.white))),
-        error: (_, __) => Text(locale.languageCode == 'ar' ? 'خطأ في تحميل البيانات' : 'Error loading data', style: const TextStyle(color: Colors.white)),
+        loading: () => const SizedBox(
+            height: 120,
+            child:
+                Center(child: CircularProgressIndicator(color: Colors.white))),
+        error: (_, __) => Text(
+            locale.languageCode == 'ar'
+                ? 'خطأ في تحميل البيانات'
+                : 'Error loading data',
+            style: const TextStyle(color: Colors.white)),
         data: (s) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,42 +175,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.trending_up, color: Colors.white, size: 22),
+                    child: const Icon(Icons.trending_up,
+                        color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    context.tr('total_net_profit'),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.trending_up, color: Colors.white, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          '+18.4%',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                  Expanded(
+                    child: Text(
+                      locale.languageCode == 'ar'
+                          ? 'صافي التدفق النقدي'
+                          : 'Net cash flow',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               Text(
-                '1,245,000',
+                _formatYer(s.netCashFlowYer, locale.languageCode),
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -201,7 +203,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               Text(
-                context.tr('currency'),
+                'YER',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
@@ -224,40 +226,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildKpiRow(BuildContext context, AsyncValue<dynamic> summaryAsync) {
     final locale = ref.watch(localeProvider);
     return summaryAsync.when(
-      loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
-      error: (_, __) => SizedBox(height: 100, child: Center(child: Text(locale.languageCode == 'ar' ? 'خطأ في التحميل' : 'Error loading'))),
+      loading: () => const SizedBox(
+          height: 100, child: Center(child: CircularProgressIndicator())),
+      error: (_, __) => SizedBox(
+          height: 100,
+          child: Center(
+              child: Text(locale.languageCode == 'ar'
+                  ? 'خطأ في التحميل'
+                  : 'Error loading'))),
       data: (s) {
         final kpis = [
           _KpiData(
             title: context.tr('projects'),
-            value: '${s.activeProjects + s.completedProjects}',
+            value: '${s.activeProjectCount + s.completedProjectCount}',
             icon: Icons.folder,
             color: const Color(0xFF3B82F6),
-            trend: '+12%',
+            trend: '',
             trendUp: true,
           ),
           _KpiData(
             title: context.tr('completed'),
-            value: '${s.completedProjects}',
+            value: '${s.completedProjectCount}',
             icon: Icons.check_circle,
             color: const Color(0xFF10B981),
-            trend: '+3',
+            trend: '',
             trendUp: true,
           ),
           _KpiData(
             title: context.tr('active'),
-            value: '${s.activeProjects}',
+            value: '${s.activeProjectCount}',
             icon: Icons.analytics,
             color: const Color(0xFFF59E0B),
-            trend: '-2%',
+            trend: '',
             trendUp: false,
           ),
           _KpiData(
             title: locale.languageCode == 'ar' ? 'معلقة' : 'Pending',
-            value: '${s.activeProjects ~/ 2}',
+            value: '${s.activeClientCount}',
             icon: Icons.schedule,
             color: const Color(0xFF8B5CF6),
-            trend: '+1',
+            trend: '',
             trendUp: true,
           ),
         ];
@@ -275,7 +283,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildActivitySection(BuildContext context, AsyncValue<List<ProjectOverview>> projectsAsync) {
+  Widget _buildActivitySection(BuildContext context,
+      AsyncValue<List<DashboardProjectOverview>> projectsAsync) {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
@@ -297,14 +306,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Row(
             children: [
-              Text(
-                context.tr('recent_activity'),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
+              Expanded(
+                child: Text(
+                  locale.languageCode == 'ar'
+                      ? 'نظرة عامة على المشاريع'
+                      : 'Project overview',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1E293B),
+                  ),
                 ),
               ),
-              const Spacer(),
               TextButton(
                 onPressed: () => context.go('/projects'),
                 child: Text(context.tr('view_all')),
@@ -314,21 +328,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 16),
           projectsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => Text(locale.languageCode == 'ar' ? 'خطأ في التحميل' : 'Error loading'),
-            data: (projects) => ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: projects.take(4).length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _ActivityCard(project: projects[i], theme: theme),
-            ),
+            error: (_, __) => Text(locale.languageCode == 'ar'
+                ? 'خطأ في التحميل'
+                : 'Error loading'),
+            data: (projects) => projects.isEmpty
+                ? Text(locale.languageCode == 'ar'
+                    ? 'لا توجد مشاريع. سجل النشاط غير متاح حاليًا.'
+                    : 'No projects. Activity history is not currently available.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: projects.take(4).length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, i) =>
+                        _ActivityCard(project: projects[i], theme: theme),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFinancialCards(BuildContext context, AsyncValue<dynamic> financeAsync) {
+  Widget _buildFinancialCards(BuildContext context,
+      AsyncValue<List<DashboardFinanceMonth>> financeAsync) {
     return Column(
       children: [
         _buildFinancialSummary(context),
@@ -339,39 +361,69 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildFinancialSummary(BuildContext context) {
+    final locale = ref.watch(localeProvider);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _FinancialCard(
-              title: context.tr('total_expenses'),
-              value: '1,650,000',
-              currency: context.tr('currency'),
-              trend: '+50%',
-              trendUp: false,
-              icon: Icons.receipt_long,
-              color: const Color(0xFFEF4444),
+      child: ref.watch(dashboardSummaryProvider).when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => Text(locale.languageCode == 'ar'
+                ? 'تعذر قراءة البيانات المحلية'
+                : 'Unable to read local data'),
+            data: (summary) => LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth < 560
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 12) / 2;
+                return Wrap(spacing: 12, runSpacing: 12, children: [
+                  SizedBox(
+                      width: width,
+                      child: _FinancialCard(
+                        title: context.tr('total_expenses'),
+                        value: _formatYer(
+                            summary.totalExpensesYer, locale.languageCode),
+                        currency: 'YER',
+                        trend: '',
+                        trendUp: false,
+                        icon: Icons.receipt_long,
+                        color: const Color(0xFFEF4444),
+                      )),
+                  SizedBox(
+                      width: width,
+                      child: _FinancialCard(
+                        title: context.tr('total_collected'),
+                        value: _formatYer(
+                            summary.totalPaymentsYer, locale.languageCode),
+                        currency: 'YER',
+                        trend: '',
+                        trendUp: true,
+                        icon: Icons.attach_money,
+                        color: const Color(0xFF10B981),
+                      )),
+                  SizedBox(
+                      width: width,
+                      child: _FinancialCard(
+                        title: locale.languageCode == 'ar'
+                            ? 'صافي التدفق النقدي'
+                            : 'Net cash flow',
+                        value: _formatYer(
+                            summary.netCashFlowYer, locale.languageCode),
+                        currency: 'YER',
+                        trend: '',
+                        trendUp: summary.netCashFlowYer >= 0,
+                        icon: Icons.account_balance_wallet,
+                        color: summary.netCashFlowYer >= 0
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                      )),
+                ]);
+              },
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _FinancialCard(
-              title: context.tr('total_collected'),
-              value: '2,890,000',
-              currency: context.tr('currency'),
-              trend: '+12%',
-              trendUp: true,
-              icon: Icons.attach_money,
-              color: const Color(0xFF10B981),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildMonthlyChart(BuildContext context, AsyncValue<dynamic> financeAsync) {
+  Widget _buildMonthlyChart(BuildContext context,
+      AsyncValue<List<DashboardFinanceMonth>> financeAsync) {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
@@ -395,7 +447,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                locale.languageCode == 'ar' ? 'الأداء الشهري ٢٠٢٦' : 'Monthly Performance 2026',
+                locale.languageCode == 'ar'
+                    ? 'الأداء الشهري ٢٠٢٦'
+                    : 'Monthly Performance 2026',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF1E293B),
@@ -406,20 +460,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 spacing: 12,
                 runSpacing: 4,
                 children: [
-                  _buildLegendDot(const Color(0xFF3B82F6), locale.languageCode == 'ar' ? 'إيرادات' : 'Revenue'),
-                  _buildLegendDot(const Color(0xFFEF4444), locale.languageCode == 'ar' ? 'مصروفات' : 'Expenses'),
-                  _buildLegendDot(const Color(0xFF10B981), locale.languageCode == 'ar' ? 'أرباح' : 'Profit'),
+                  _buildLegendDot(const Color(0xFF3B82F6),
+                      locale.languageCode == 'ar' ? 'إيرادات' : 'Revenue'),
+                  _buildLegendDot(const Color(0xFFEF4444),
+                      locale.languageCode == 'ar' ? 'مصروفات' : 'Expenses'),
+                  _buildLegendDot(const Color(0xFF10B981),
+                      locale.languageCode == 'ar' ? 'أرباح' : 'Profit'),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 20),
           financeAsync.when(
-            loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
-            error: (_, __) => SizedBox(height: 200, child: Center(child: Text(locale.languageCode == 'ar' ? 'خطأ في التحميل' : 'Error loading'))),
+            loading: () => const SizedBox(
+                height: 200, child: Center(child: CircularProgressIndicator())),
+            error: (_, __) => SizedBox(
+                height: 200,
+                child: Center(
+                    child: Text(locale.languageCode == 'ar'
+                        ? 'خطأ في التحميل'
+                        : 'Error loading'))),
             data: (finance) => SizedBox(
               height: 220,
-              child: _InteractiveLineChart(months: finance.months),
+              child: _InteractiveLineChart(months: finance),
             ),
           ),
         ],
@@ -491,7 +554,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 120,
+            height: 132,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: actions.length,
@@ -512,7 +575,13 @@ class _KpiData {
   final Color color;
   final String trend;
   final bool trendUp;
-  _KpiData({required this.title, required this.value, required this.icon, required this.color, required this.trend, required this.trendUp});
+  _KpiData(
+      {required this.title,
+      required this.value,
+      required this.icon,
+      required this.color,
+      required this.trend,
+      required this.trendUp});
 }
 
 class _KpiCard extends StatelessWidget {
@@ -553,7 +622,9 @@ class _KpiCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: kpi.trendUp ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                  color: kpi.trendUp
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -561,13 +632,18 @@ class _KpiCard extends StatelessWidget {
                   children: [
                     Icon(
                       kpi.trendUp ? Icons.trending_up : Icons.trending_down,
-                      color: kpi.trendUp ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      color: kpi.trendUp
+                          ? const Color(0xFF166534)
+                          : const Color(0xFF991B1B),
                       size: 10,
                     ),
                     const SizedBox(width: 2),
                     Text(
                       kpi.trend,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF166534)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                          color: Color(0xFF166534)),
                     ),
                   ],
                 ),
@@ -577,7 +653,10 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             kpi.value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1E293B)),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Color(0xFF1E293B)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -595,7 +674,7 @@ class _KpiCard extends StatelessWidget {
 }
 
 class _ActivityCard extends StatelessWidget {
-  final dynamic project;
+  final DashboardProjectOverview project;
   final ThemeData theme;
   const _ActivityCard({required this.project, required this.theme});
 
@@ -616,7 +695,7 @@ class _ActivityCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.folder, color: Colors.deepOrange, size: 22),
+            child: const Icon(Icons.folder, color: Colors.deepOrange, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -624,7 +703,7 @@ class _ActivityCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  project.name,
+                  project.projectName,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1E293B),
@@ -648,7 +727,10 @@ class _ActivityCard extends StatelessWidget {
             ),
             child: const Text(
               'مكتمل',
-              style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF166534), fontSize: 11),
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF166534),
+                  fontSize: 11),
             ),
           ),
         ],
@@ -708,7 +790,9 @@ class _FinancialCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: trendUp ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                  color: trendUp
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -716,13 +800,18 @@ class _FinancialCard extends StatelessWidget {
                   children: [
                     Icon(
                       trendUp ? Icons.trending_up : Icons.trending_down,
-                      color: trendUp ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      color: trendUp
+                          ? const Color(0xFF166534)
+                          : const Color(0xFF991B1B),
                       size: 12,
                     ),
                     const SizedBox(width: 2),
                     Text(
                       trend,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF166534)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Color(0xFF166534)),
                     ),
                   ],
                 ),
@@ -732,7 +821,10 @@ class _FinancialCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1E293B)),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Color(0xFF1E293B)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -754,7 +846,11 @@ class _QuickActionData {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  _QuickActionData({required this.title, required this.icon, required this.color, required this.onTap});
+  _QuickActionData(
+      {required this.title,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 }
 
 class _QuickActionCard extends StatelessWidget {
@@ -794,7 +890,10 @@ class _QuickActionCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               action.title,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+              style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B)),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -805,7 +904,6 @@ class _QuickActionCard extends StatelessWidget {
     );
   }
 }
-
 
 class _SparklinePainter extends CustomPainter {
   @override
@@ -853,7 +951,7 @@ class _SparklinePainter extends CustomPainter {
 }
 
 class _InteractiveLineChart extends StatefulWidget {
-  final List<MonthlyPoint> months;
+  final List<DashboardFinanceMonth> months;
   const _InteractiveLineChart({required this.months});
 
   @override
@@ -865,11 +963,13 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = widget.months.fold<Decimal>(Decimal.one, (m, p) {
-      final bigger = p.income > p.expense ? p.income : p.expense;
+    final maxVal = widget.months.fold<int>(1, (m, p) {
+      final bigger = p.totalPaymentsYer > p.totalExpensesYer
+          ? p.totalPaymentsYer
+          : p.totalExpensesYer;
       return bigger > m ? bigger : m;
     });
-    final maxDouble = maxVal.toDouble().abs();
+    final maxDouble = maxVal.abs().toDouble();
     final chartMax = maxDouble == 0 ? 1.0 : maxDouble;
 
     return GestureDetector(
@@ -893,13 +993,14 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
             ),
             size: Size.infinite,
           ),
-          if (_hoveredIndex != null) _buildTooltip(widget.months[_hoveredIndex!]),
+          if (_hoveredIndex != null)
+            _buildTooltip(widget.months[_hoveredIndex!]),
         ],
       ),
     );
   }
 
-  Widget _buildTooltip(MonthlyPoint point) {
+  Widget _buildTooltip(DashboardFinanceMonth point) {
     return Positioned(
       left: MediaQuery.of(context).size.width / 2 - 60,
       top: 20,
@@ -921,29 +1022,36 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              point.month,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)),
+              point.canonicalKey,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF1E293B)),
             ),
             const SizedBox(height: 8),
-            _buildTooltipRow(const Color(0xFF3B82F6), 'ايرادات', point.income),
+            _buildTooltipRow(
+                const Color(0xFF3B82F6), 'ايرادات', point.totalPaymentsYer),
             const SizedBox(height: 4),
-            _buildTooltipRow(const Color(0xFFEF4444), 'مصروفات', point.expense),
+            _buildTooltipRow(
+                const Color(0xFFEF4444), 'مصروفات', point.totalExpensesYer),
             const SizedBox(height: 4),
-            _buildTooltipRow(const Color(0xFF10B981), 'ارباح', point.income - point.expense),
+            _buildTooltipRow(
+                const Color(0xFF10B981), 'صافي التدفق', point.netCashFlowYer),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTooltipRow(Color color, String label, Decimal value) {
+  Widget _buildTooltipRow(Color color, String label, int value) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 6),
         Text(
@@ -952,8 +1060,11 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
         ),
         const SizedBox(width: 4),
         Text(
-          '${value.toStringAsFixed(0)}k',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E293B)),
+          NumberFormat.decimalPattern().format(value),
+          style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Color(0xFF1E293B)),
         ),
       ],
     );
@@ -961,11 +1072,12 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
 }
 
 class _MultiLineChartPainter extends CustomPainter {
-  final List<MonthlyPoint> months;
+  final List<DashboardFinanceMonth> months;
   final double maxVal;
   final int? hoveredIndex;
 
-  _MultiLineChartPainter({required this.months, required this.maxVal, this.hoveredIndex});
+  _MultiLineChartPainter(
+      {required this.months, required this.maxVal, this.hoveredIndex});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -979,41 +1091,75 @@ class _MultiLineChartPainter extends CustomPainter {
       final x = i * barWidth * 1.5 + barWidth * 0.25;
       final isHovered = i == hoveredIndex;
 
-      final incomeH = (m.income.toDouble().abs() / maxVal) * baseHeight;
-      final expenseH = (m.expense.toDouble().abs() / maxVal) * baseHeight;
+      final incomeH =
+          (m.totalPaymentsYer.abs().toDouble() / maxVal) * baseHeight;
+      final expenseH =
+          (m.totalExpensesYer.abs().toDouble() / maxVal) * baseHeight;
       final profitH = incomeH - expenseH;
 
       final incomePaint = Paint()
-        ..color = isHovered ? const Color(0xFF3B82F6) : const Color(0xFF3B82F6).withValues(alpha: 0.3)
+        ..color = isHovered
+            ? const Color(0xFF3B82F6)
+            : const Color(0xFF3B82F6).withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
 
       final expensePaint = Paint()
-        ..color = isHovered ? const Color(0xFFEF4444) : const Color(0xFFEF4444).withValues(alpha: 0.3)
+        ..color = isHovered
+            ? const Color(0xFFEF4444)
+            : const Color(0xFFEF4444).withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
 
       final profitPaint = Paint()
-        ..color = isHovered ? const Color(0xFF10B981) : const Color(0xFF10B981).withValues(alpha: 0.3)
+        ..color = isHovered
+            ? const Color(0xFF10B981)
+            : const Color(0xFF10B981).withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
 
       if (incomeH > 0) {
-        canvas.drawRect(Rect.fromLTWH(x, baseHeight - incomeH, barWidth * 0.4, incomeH), incomePaint);
+        canvas.drawRect(
+            Rect.fromLTWH(x, baseHeight - incomeH, barWidth * 0.4, incomeH),
+            incomePaint);
       }
       if (expenseH > 0) {
-        canvas.drawRect(Rect.fromLTWH(x + barWidth * 0.5, baseHeight - expenseH, barWidth * 0.4, expenseH), expensePaint);
+        canvas.drawRect(
+            Rect.fromLTWH(x + barWidth * 0.5, baseHeight - expenseH,
+                barWidth * 0.4, expenseH),
+            expensePaint);
       }
       if (profitH > 0) {
-        canvas.drawRect(Rect.fromLTWH(x + barWidth, baseHeight - profitH, barWidth * 0.4, profitH), profitPaint);
+        canvas.drawRect(
+            Rect.fromLTWH(
+                x + barWidth, baseHeight - profitH, barWidth * 0.4, profitH),
+            profitPaint);
       }
 
       if (isHovered) {
-        final dotPaint = Paint()..color = const Color(0xFF1E293B)..style = PaintingStyle.fill;
-        canvas.drawCircle(Offset(x + barWidth * 0.2, baseHeight - incomeH), 5, dotPaint);
-        canvas.drawCircle(Offset(x + barWidth * 0.7, baseHeight - expenseH), 5, dotPaint);
-        canvas.drawCircle(Offset(x + barWidth * 1.2, baseHeight - profitH), 5, dotPaint);
+        final dotPaint = Paint()
+          ..color = const Color(0xFF1E293B)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(
+            Offset(x + barWidth * 0.2, baseHeight - incomeH), 5, dotPaint);
+        canvas.drawCircle(
+            Offset(x + barWidth * 0.7, baseHeight - expenseH), 5, dotPaint);
+        canvas.drawCircle(
+            Offset(x + barWidth * 1.2, baseHeight - profitH), 5, dotPaint);
       }
     }
 
-    final monthLabels = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'];
+    final monthLabels = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'ابريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'اغسطس',
+      'سبتمبر',
+      'اكتوبر',
+      'نوفمبر',
+      'ديسمبر'
+    ];
     final textPainter = TextPainter(textDirection: ui.TextDirection.rtl);
     for (var i = 0; i < months.length && i < 12; i++) {
       final x = i * barWidth * 1.5 + barWidth * 0.75;
@@ -1022,10 +1168,12 @@ class _MultiLineChartPainter extends CustomPainter {
         style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(x - textPainter.width / 2, baseHeight + 8));
+      textPainter.paint(
+          canvas, Offset(x - textPainter.width / 2, baseHeight + 8));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _MultiLineChartPainter old) => old.months != months || old.hoveredIndex != hoveredIndex;
+  bool shouldRepaint(covariant _MultiLineChartPainter old) =>
+      old.months != months || old.hoveredIndex != hoveredIndex;
 }

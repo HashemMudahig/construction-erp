@@ -28,10 +28,16 @@ class AppShell extends ConsumerWidget {
     }
 
     final navItems = [
-      _NavItem(icon: Icons.dashboard, label: context.tr('dashboard'), path: '/'),
-      _NavItem(icon: Icons.people, label: context.tr('clients'), path: '/clients'),
-      _NavItem(icon: Icons.folder, label: context.tr('projects'), path: '/projects'),
-      _NavItem(icon: Icons.assessment, label: context.tr('reports'), path: '/reports'),
+      _NavItem(
+          icon: Icons.dashboard, label: context.tr('dashboard'), path: '/'),
+      _NavItem(
+          icon: Icons.people, label: context.tr('clients'), path: '/clients'),
+      _NavItem(
+          icon: Icons.folder, label: context.tr('projects'), path: '/projects'),
+      _NavItem(
+          icon: Icons.assessment,
+          label: context.tr('reports'),
+          path: '/reports'),
     ];
 
     if (isMobile) {
@@ -94,12 +100,18 @@ class _Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
-    
+
     final navItems = [
-      _NavItem(icon: Icons.dashboard, label: context.tr('dashboard'), path: '/'),
-      _NavItem(icon: Icons.people, label: context.tr('clients'), path: '/clients'),
-      _NavItem(icon: Icons.folder, label: context.tr('projects'), path: '/projects'),
-      _NavItem(icon: Icons.assessment, label: context.tr('reports'), path: '/reports'),
+      _NavItem(
+          icon: Icons.dashboard, label: context.tr('dashboard'), path: '/'),
+      _NavItem(
+          icon: Icons.people, label: context.tr('clients'), path: '/clients'),
+      _NavItem(
+          icon: Icons.folder, label: context.tr('projects'), path: '/projects'),
+      _NavItem(
+          icon: Icons.assessment,
+          label: context.tr('reports'),
+          path: '/reports'),
     ];
 
     return Container(
@@ -127,7 +139,8 @@ class _Sidebar extends ConsumerWidget {
                     color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.construction, color: AppTheme.primaryColor, size: 28),
+                  child: const Icon(Icons.construction,
+                      color: AppTheme.primaryColor, size: 28),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -144,7 +157,8 @@ class _Sidebar extends ConsumerWidget {
                       Text(
                         'Management System',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                       ),
@@ -165,7 +179,8 @@ class _Sidebar extends ConsumerWidget {
                 onTap: () => onNavigate(index),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppTheme.primaryColor.withValues(alpha: 0.08)
@@ -177,14 +192,21 @@ class _Sidebar extends ConsumerWidget {
                       Icon(
                         item.icon,
                         size: 22,
-                        color: isSelected ? AppTheme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 14),
                       Text(
                         item.label,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected ? AppTheme.primaryColor : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
                           fontSize: 14,
                         ),
                       ),
@@ -202,7 +224,8 @@ class _Sidebar extends ConsumerWidget {
               onTap: () => ref.read(localeProvider.notifier).toggleLocale(),
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   border: Border.all(color: theme.colorScheme.outlineVariant),
                   borderRadius: BorderRadius.circular(12),
@@ -226,7 +249,8 @@ class _Sidebar extends ConsumerWidget {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -236,8 +260,10 @@ class _Sidebar extends ConsumerWidget {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                      child: Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
+                      backgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.2),
+                      child: const Icon(Icons.person,
+                          size: 18, color: AppTheme.primaryColor),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -255,7 +281,8 @@ class _Sidebar extends ConsumerWidget {
                             userEmail,
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontSize: 11,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -272,7 +299,8 @@ class _Sidebar extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.logout, size: 18, color: theme.colorScheme.error),
+                        Icon(Icons.logout,
+                            size: 18, color: theme.colorScheme.error),
                         const SizedBox(width: 8),
                         Text(
                           context.tr('logout'),

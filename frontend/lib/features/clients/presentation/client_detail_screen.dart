@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/client_repository.dart';
 import 'client_providers.dart';
 import '../../../core/localization/app_localizations.dart';
 
@@ -21,14 +20,18 @@ class ClientDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: Localizations.localeOf(context).languageCode == 'ar' ? 'تعديل' : 'Edit',
+            tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                ? 'تعديل'
+                : 'Edit',
             onPressed: () => context.go('/clients/$id/edit'),
           ),
         ],
       ),
       body: clientAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorView(message: e.toString(), onRetry: () => ref.invalidate(clientDetailProvider(id))),
+        error: (e, _) => _ErrorView(
+            message: e.toString(),
+            onRetry: () => ref.invalidate(clientDetailProvider(id))),
         data: (c) {
           final isAr = Localizations.localeOf(context).languageCode == 'ar';
           return ListView(
@@ -44,10 +47,13 @@ class ClientDetailScreen extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: Text(c.name,
-                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                style: theme.textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold)),
                           ),
                           Chip(
-                            label: Text(c.archived ? (isAr ? 'مؤرشف' : 'Archived') : (isAr ? 'نشط' : 'Active')),
+                            label: Text(c.archived
+                                ? (isAr ? 'مؤرشف' : 'Archived')
+                                : (isAr ? 'نشط' : 'Active')),
                             backgroundColor: c.archived
                                 ? theme.colorScheme.surfaceContainerHighest
                                 : theme.colorScheme.primaryContainer,
@@ -55,10 +61,16 @@ class ClientDetailScreen extends ConsumerWidget {
                         ],
                       ),
                       const Divider(height: 20),
-                      _InfoRow(label: context.tr('phone'), value: c.phone ?? '—'),
-                      _InfoRow(label: context.tr('email'), value: c.email ?? '—'),
-                      _InfoRow(label: isAr ? 'العنوان' : 'Address', value: c.address ?? '—'),
-                      _InfoRow(label: isAr ? 'ملاحظات' : 'Notes', value: c.notes ?? '—'),
+                      _InfoRow(
+                          label: context.tr('phone'), value: c.phone ?? '—'),
+                      _InfoRow(
+                          label: context.tr('email'), value: c.email ?? '—'),
+                      _InfoRow(
+                          label: isAr ? 'العنوان' : 'Address',
+                          value: c.address ?? '—'),
+                      _InfoRow(
+                          label: isAr ? 'ملاحظات' : 'Notes',
+                          value: c.notes ?? '—'),
                     ],
                   ),
                 ),
@@ -67,7 +79,8 @@ class ClientDetailScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(isAr ? 'المشاريع المرتبطة' : 'Linked projects', style: theme.textTheme.titleMedium),
+                  Text(isAr ? 'المشاريع المرتبطة' : 'Linked projects',
+                      style: theme.textTheme.titleMedium),
                   FilledButton.tonalIcon(
                     icon: const Icon(Icons.add, size: 18),
                     label: Text(context.tr('add_project')),
@@ -76,13 +89,6 @@ class ClientDetailScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              FutureBuilder(
-                future: ref.read(clientRepositoryProvider).list(search: c.name),
-                builder: (_, snap) {
-                  if (!snap.hasData) return const SizedBox.shrink();
-                  return const SizedBox.shrink();
-                },
-              ),
             ],
           );
         },
@@ -102,7 +108,10 @@ class _InfoRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: 90, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+            SizedBox(
+                width: 90,
+                child:
+                    Text(label, style: Theme.of(context).textTheme.bodySmall)),
             Expanded(child: Text(value)),
           ],
         ),
@@ -122,7 +131,11 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'إعادة المحاولة' : 'Retry')),
+            FilledButton(
+                onPressed: onRetry,
+                child: Text(Localizations.localeOf(context).languageCode == 'ar'
+                    ? 'إعادة المحاولة'
+                    : 'Retry')),
           ],
         ),
       );

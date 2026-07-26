@@ -118,3 +118,25 @@ This file records how we work in this project so future implementation stays con
 - Money uses `Decimal`. Never `float`.
 - Migrations are the source of truth for schema. Never hand-edit production tables.
 - Documentation lives in the relevant sprint folder under `backend/docs/Sprint_XX_<Name>/`. Update those files when implementation changes scope or completion state.
+
+## Offline Migration Governance
+
+The Flutter frontend is planned to become a local-first, fully offline application. The migration plan is documented in `docs/offline_migration/`.
+
+### Rules for Future Agents
+
+1. Read `docs/offline_migration/README.md` before starting any migration work.
+2. Read the document for the exact phase being implemented.
+3. Implement only the requested phase. Do not skip ahead.
+4. Never skip prerequisites (earlier phases must be completed first).
+5. Update the phase status and completion record after implementation.
+6. Update `docs/offline_migration/README.md` status table after any status change.
+7. Update the relevant history file (`docs/history.md`, `frontend/HISTORY.md`) after completing a phase.
+8. Keep the FastAPI backend preserved unless the user explicitly requests removal.
+9. Never store financial values as `double` or SQLite `REAL`. Use `Decimal` in Dart and TEXT in SQLite.
+10. Preserve UUID compatibility — all primary keys remain UUID v4 stored as TEXT.
+11. Add and run phase-specific tests before marking a phase as complete.
+12. Leave changes uncommitted unless explicitly instructed otherwise.
+13. Never claim a phase is complete if tests or acceptance criteria fail.
+14. Record unresolved decisions and blockers in `docs/offline_migration/decision_log.md`.
+15. Avoid editing unrelated phases. Each phase document is independent.
