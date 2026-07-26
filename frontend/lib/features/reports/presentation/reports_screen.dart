@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
-import '../../projects/presentation/project_providers.dart';
+import '../../projects/data/project_repository.dart';
 import 'report_providers.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
@@ -22,13 +22,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   bool _generated = false;
   ReportFilters? _lastFilters;
 
-  static const _statuses = [
-    'active',
-    'completed',
-    'on_hold',
-    'cancelled',
-    'planning'
-  ];
+  static const _statuses = ['active', 'completed', 'on_hold', 'cancelled', 'planning'];
 
   String _localizedStatus(BuildContext ctx, String s) {
     final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
@@ -69,30 +63,21 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   label: context.tr('project_status_report'),
                   icon: Icons.folder_open_outlined,
                   selected: _reportType == ReportType.projectStatus,
-                  onTap: () => setState(() {
-                    _reportType = ReportType.projectStatus;
-                    _generated = false;
-                  }),
+                  onTap: () => setState(() { _reportType = ReportType.projectStatus; _generated = false; }),
                 ),
                 const SizedBox(width: 8),
                 _TypeChip(
                   label: context.tr('financial_report'),
                   icon: Icons.bar_chart_outlined,
                   selected: _reportType == ReportType.financialSummary,
-                  onTap: () => setState(() {
-                    _reportType = ReportType.financialSummary;
-                    _generated = false;
-                  }),
+                  onTap: () => setState(() { _reportType = ReportType.financialSummary; _generated = false; }),
                 ),
                 const SizedBox(width: 8),
                 _TypeChip(
                   label: context.tr('expense_report'),
                   icon: Icons.receipt_long_outlined,
                   selected: _reportType == ReportType.expenseAnalysis,
-                  onTap: () => setState(() {
-                    _reportType = ReportType.expenseAnalysis;
-                    _generated = false;
-                  }),
+                  onTap: () => setState(() { _reportType = ReportType.expenseAnalysis; _generated = false; }),
                 ),
               ],
             ),
@@ -104,15 +89,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(
-                    child: _DateField(
+                Expanded(child: _DateField(
                   label: context.tr('filter_start'),
                   date: _startDate,
                   onPick: (d) => setState(() => _startDate = d),
                 )),
                 const SizedBox(width: 12),
-                Expanded(
-                    child: _DateField(
+                Expanded(child: _DateField(
                   label: context.tr('filter_end'),
                   date: _endDate,
                   onPick: (d) => setState(() => _endDate = d),
@@ -135,19 +118,18 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               _SectionLabel(label: context.tr('status')),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _statusFilter,
+                value: _statusFilter,
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.filter_list),
                   hintText: context.tr('all_statuses'),
                 ),
                 items: [
-                  DropdownMenuItem(
-                      value: null, child: Text(context.tr('all_statuses'))),
+                  DropdownMenuItem(value: null, child: Text(context.tr('all_statuses'))),
                   ..._statuses.map((s) => DropdownMenuItem(
-                        value: s,
-                        child: Text(_localizedStatus(context, s)),
-                      )),
+                    value: s,
+                    child: Text(_localizedStatus(context, s)),
+                  )),
                 ],
                 onChanged: (v) => setState(() => _statusFilter = v),
               ),
@@ -160,12 +142,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               height: 52,
               child: FilledButton.icon(
                 icon: const Icon(Icons.assessment_outlined),
-                label: Text(context.tr('generate'),
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                label: Text(context.tr('generate'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   setState(() {
@@ -204,26 +183,19 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        label,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.3,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.65),
-            ),
-      );
+    label,
+    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.bold,
+      letterSpacing: 0.3,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+    ),
+  );
 }
 
 // ─── Report type chip ─────────────────────────────────────────────────────────
 
 class _TypeChip extends StatelessWidget {
-  const _TypeChip(
-      {required this.label,
-      required this.icon,
-      required this.selected,
-      required this.onTap});
+  const _TypeChip({required this.label, required this.icon, required this.selected, required this.onTap});
   final String label;
   final IconData icon;
   final bool selected;
@@ -239,27 +211,16 @@ class _TypeChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.surfaceContainerHighest,
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
             boxShadow: selected
-                ? [
-                    BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3))
-                  ]
+                ? [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))]
                 : [],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 22,
-                  color: selected
-                      ? Colors.white
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              Icon(icon, size: 22, color: selected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               const SizedBox(height: 4),
               Text(
                 label,
@@ -267,9 +228,7 @@ class _TypeChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: selected
-                      ? Colors.white
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: selected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -296,20 +255,16 @@ class _HintView extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
       ),
       child: Column(
         children: [
-          Icon(Icons.analytics_outlined,
-              size: 56,
-              color: theme.colorScheme.primary.withValues(alpha: 0.35)),
+          Icon(Icons.analytics_outlined, size: 56, color: theme.colorScheme.primary.withValues(alpha: 0.35)),
           const SizedBox(height: 16),
           Text(
             hint,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -320,8 +275,7 @@ class _HintView extends StatelessWidget {
 // ─── Date field ───────────────────────────────────────────────────────────────
 
 class _DateField extends StatelessWidget {
-  const _DateField(
-      {required this.label, required this.date, required this.onPick});
+  const _DateField({required this.label, required this.date, required this.onPick});
   final String label;
   final DateTime? date;
   final ValueChanged<DateTime> onPick;
@@ -378,13 +332,8 @@ class _ProjectDropdownState extends ConsumerState<_ProjectDropdown> {
 
   Future<void> _load() async {
     try {
-      final projects = await ref.read(projectRepositoryProvider).list();
-      if (mounted) {
-        setState(() {
-          _projects = projects;
-          _loading = false;
-        });
-      }
+      final dtos = await ref.read(projectRepositoryProvider).list(limit: 100);
+      if (mounted) setState(() { _projects = dtos; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -394,7 +343,7 @@ class _ProjectDropdownState extends ConsumerState<_ProjectDropdown> {
   Widget build(BuildContext context) {
     if (_loading) return const SizedBox.shrink();
     return DropdownButtonFormField<String>(
-      initialValue: widget.selected,
+      value: widget.selected,
       decoration: InputDecoration(
         isDense: true,
         prefixIcon: const Icon(Icons.folder_outlined, size: 18),
@@ -402,8 +351,7 @@ class _ProjectDropdownState extends ConsumerState<_ProjectDropdown> {
       ),
       items: [
         DropdownMenuItem(value: null, child: Text(context.tr('all_projects'))),
-        ..._projects
-            .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))),
+        ..._projects.map((p) => DropdownMenuItem(value: p.id, child: Text(p.name))),
       ],
       onChanged: widget.onChanged,
     );
@@ -421,11 +369,8 @@ class _ResultsArea extends ConsumerWidget {
     final resultAsync = ref.watch(reportResultProvider(filters));
 
     return resultAsync.when(
-      loading: () => const SizedBox(
-          height: 200, child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => _ErrorView(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(reportResultProvider(filters))),
+      loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => _ErrorView(message: e.toString(), onRetry: () => ref.invalidate(reportResultProvider(filters))),
       data: (result) {
         final type = result['type'] as String;
         final data = result['data'];
@@ -434,11 +379,9 @@ class _ResultsArea extends ConsumerWidget {
           case 'project_status':
             return _ProjectStatusResults(data: data as List);
           case 'financial_summary':
-            return _FinancialSummaryResults(
-                data: FinancialSummary.fromJson(data as Map<String, dynamic>));
+            return _FinancialSummaryResults(data: FinancialSummary.fromJson(data as Map<String, dynamic>));
           case 'expense_analysis':
-            return _ExpenseAnalysisResults(
-                data: ExpenseAnalysis.fromJson(data as Map<String, dynamic>));
+            return _ExpenseAnalysisResults(data: ExpenseAnalysis.fromJson(data as Map<String, dynamic>));
           default:
             return const Text('Unknown report type');
         }
@@ -465,16 +408,11 @@ class _ProjectStatusResults extends StatelessWidget {
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'active':
-        return Colors.green;
-      case 'completed':
-        return Colors.blue;
-      case 'on_hold':
-        return Colors.orange;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'active': return Colors.green;
+      case 'completed': return Colors.blue;
+      case 'on_hold': return Colors.orange;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
@@ -482,9 +420,7 @@ class _ProjectStatusResults extends StatelessWidget {
   Widget build(BuildContext context) {
     if (data.isEmpty) return _EmptyView(message: context.tr('no_data'));
 
-    final items = data
-        .map((d) => ProjectStatusItem.fromJson(d as Map<String, dynamic>))
-        .toList();
+    final items = data.map((d) => ProjectStatusItem.fromJson(d as Map<String, dynamic>)).toList();
     final theme = Theme.of(context);
 
     return Column(
@@ -513,13 +449,9 @@ class _ProjectStatusResults extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
               boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2)),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
             child: Padding(
@@ -530,27 +462,21 @@ class _ProjectStatusResults extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          item.name,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                        child: Text(item.name,
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           _localizedStatus(context, item.status),
-                          style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12),
+                          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
                     ],
@@ -563,21 +489,16 @@ class _ProjectStatusResults extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: progress.clamp(0.0, 1.0),
+                             value: progress.clamp(0.0, 1.0),
                             minHeight: 7,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHighest,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(statusColor),
+                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                            valueColor: AlwaysStoppedAnimation<Color>(statusColor),
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text('${item.progressPct}%',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: statusColor)),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: statusColor)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -586,35 +507,20 @@ class _ProjectStatusResults extends StatelessWidget {
                     spacing: 16,
                     runSpacing: 4,
                     children: [
-                      _MiniStat(
-                          label: context.tr('budget'),
-                          value: _fmt(item.budget),
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.7)),
-                      _MiniStat(
-                          label: context.tr('total_payments'),
-                          value: _fmt(item.totalPayments),
-                          color: Colors.green),
-                      _MiniStat(
-                          label: context.tr('total_expenses'),
-                          value: _fmt(item.totalExpenses),
-                          color: Colors.red),
+                      _MiniStat(label: context.tr('budget'), value: _fmt(item.budget), color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                      _MiniStat(label: context.tr('total_payments'), value: _fmt(item.totalPayments), color: Colors.green),
+                      _MiniStat(label: context.tr('total_expenses'), value: _fmt(item.totalExpenses), color: Colors.red),
                       _MiniStat(
                         label: context.tr('balance'),
                         value: _fmt(item.balance),
-                        color: item.balance < Decimal.zero
-                            ? Colors.red
-                            : Colors.teal,
+                        color: item.balance < Decimal.zero ? Colors.red : Colors.teal,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${context.tr('milestones_progress')}: ${item.completedMilestones}/${item.milestoneCount}',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.55)),
+                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                   ),
                 ],
               ),
@@ -642,28 +548,17 @@ class _FinancialSummaryResults extends StatelessWidget {
         // KPI cards row
         Row(
           children: [
-            Expanded(
-                child: _KpiCard(
-                    label: context.tr('income'),
-                    value: data.totalIncome.toStringAsFixed(2),
-                    color: Colors.green,
-                    icon: Icons.trending_up)),
+            Expanded(child: _KpiCard(label: context.tr('income'), value: data.totalIncome.toStringAsFixed(2),
+                color: Colors.green, icon: Icons.trending_up)),
             const SizedBox(width: 10),
-            Expanded(
-                child: _KpiCard(
-                    label: context.tr('total_expenses'),
-                    value: data.totalExpenses.toStringAsFixed(2),
-                    color: Colors.red,
-                    icon: Icons.trending_down)),
+            Expanded(child: _KpiCard(label: context.tr('total_expenses'), value: data.totalExpenses.toStringAsFixed(2),
+                color: Colors.red, icon: Icons.trending_down)),
             const SizedBox(width: 10),
-            Expanded(
-                child: _KpiCard(
+            Expanded(child: _KpiCard(
               label: context.tr('net'),
               value: data.net.toStringAsFixed(2),
               color: data.net >= Decimal.zero ? Colors.teal : Colors.red,
-              icon: data.net >= Decimal.zero
-                  ? Icons.account_balance_wallet_outlined
-                  : Icons.warning_amber_outlined,
+              icon: data.net >= Decimal.zero ? Icons.account_balance_wallet_outlined : Icons.warning_amber_outlined,
             )),
           ],
         ),
@@ -693,23 +588,14 @@ class _FinancialProjectRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
-          Expanded(
-              child: Text(project.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold))),
-          _MiniStat(
-              label: context.tr('income'),
-              value: project.income.toStringAsFixed(2),
-              color: Colors.green),
+          Expanded(child: Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold))),
+          _MiniStat(label: context.tr('income'), value: project.income.toStringAsFixed(2), color: Colors.green),
           const SizedBox(width: 16),
-          _MiniStat(
-              label: context.tr('total_expenses'),
-              value: project.expenses.toStringAsFixed(2),
-              color: Colors.red),
+          _MiniStat(label: context.tr('total_expenses'), value: project.expenses.toStringAsFixed(2), color: Colors.red),
           const SizedBox(width: 16),
           _MiniStat(
             label: context.tr('net'),
@@ -768,8 +654,7 @@ class _CategoryBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -777,20 +662,18 @@ class _CategoryBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(item.category,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text('${item.percentage}%',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.orange)),
+              Text(item.category, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text('${item.percentage}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
             ],
           ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (item.percentage.toDouble() / 100.0)
-                  .clamp(0.0, 1.0)
-                  .toDouble(),
+  value: (item.percentage.toDouble() / 100.0)
+      .clamp(0.0, 1.0)
+      .toDouble(),
+),
               minHeight: 7,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
@@ -798,9 +681,7 @@ class _CategoryBar extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(item.total.toStringAsFixed(2),
-              style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
         ],
       ),
     );
@@ -819,27 +700,19 @@ class _ProjectExpansionTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        title: Text(project.name,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         trailing: Text(project.total.toStringAsFixed(2),
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.orange)),
-        children: project.byCategory
-            .map((c) => ListTile(
-                  dense: true,
-                  title: Text(c.category),
-                  trailing: Text(
-                      '${c.total.toStringAsFixed(2)}  (${c.percentage}%)',
-                      style: TextStyle(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.65))),
-                ))
-            .toList(),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+        children: project.byCategory.map((c) => ListTile(
+          dense: true,
+          title: Text(c.category),
+          trailing: Text('${c.total.toStringAsFixed(2)}  (${c.percentage}%)',
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.65))),
+        )).toList(),
       ),
     );
   }
@@ -848,11 +721,7 @@ class _ProjectExpansionTile extends StatelessWidget {
 // ─── Shared widgets ───────────────────────────────────────────────────────────
 
 class _KpiCard extends StatelessWidget {
-  const _KpiCard(
-      {required this.label,
-      required this.value,
-      required this.color,
-      required this.icon});
+  const _KpiCard({required this.label, required this.value, required this.color, required this.icon});
   final String label;
   final String value;
   final Color color;
@@ -872,13 +741,9 @@ class _KpiCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(height: 8),
-          Text(label,
-              style: TextStyle(
-                  color: color.withValues(alpha: 0.75), fontSize: 11)),
+          Text(label, style: TextStyle(color: color.withValues(alpha: 0.75), fontSize: 11)),
           const SizedBox(height: 2),
-          Text(value,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 15),
+          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
               overflow: TextOverflow.ellipsis),
         ],
       ),
@@ -887,11 +752,7 @@ class _KpiCard extends StatelessWidget {
 }
 
 class _StatPill extends StatelessWidget {
-  const _StatPill(
-      {required this.label,
-      required this.value,
-      required this.color,
-      required this.icon});
+  const _StatPill({required this.label, required this.value, required this.color, required this.icon});
   final String label;
   final String value;
   final Color color;
@@ -899,43 +760,36 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text('$value $label',
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text('$value $label', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+      ],
+    ),
+  );
 }
 
 class _MiniStat extends StatelessWidget {
-  const _MiniStat(
-      {required this.label, required this.value, required this.color});
+  const _MiniStat({required this.label, required this.value, required this.color});
   final String label;
   final String value;
   final Color color;
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style:
-                  TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+    ],
+  );
 }
 
 class _EmptyView extends StatelessWidget {
@@ -952,11 +806,9 @@ class _EmptyView extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Center(
-        child: Text(
-          message,
+        child: Text(message,
           textAlign: TextAlign.center,
-          style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
         ),
       ),
     );
@@ -969,20 +821,17 @@ class _ErrorView extends StatelessWidget {
   final VoidCallback onRetry;
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red),
-              const SizedBox(height: 8),
-              Text(message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              FilledButton(
-                  onPressed: onRetry, child: Text(context.tr('retry'))),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red),
+          const SizedBox(height: 8),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: onRetry, child: Text(context.tr('retry'))),
+        ],
+      ),
+    ),
+  );
 }
