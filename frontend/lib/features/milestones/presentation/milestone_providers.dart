@@ -8,14 +8,13 @@ import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime milestone repository provider.
 ///
-/// Uses [LocalMilestoneRepository] (Drift/SQLite). The remote
-/// [ApiMilestoneRepository] remains preserved as `apiMilestoneRepositoryProvider`.
+/// Uses the sole production implementation: [LocalMilestoneRepository].
 final milestoneRepositoryProvider =
     Provider<MilestoneRepositoryInterface>((ref) {
   return ref.watch(localMilestoneRepositoryProvider);
 });
 
-/// List milestones by project — local, no Dio.
+/// List milestones by project from local storage.
 final milestonesByProjectProvider =
     FutureProvider.family<List<MilestoneEntity>, String>(
         (ref, projectId) async {

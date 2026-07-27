@@ -9,13 +9,12 @@ import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime expense repository provider.
 ///
-/// Uses [LocalExpenseRepository] (Drift/SQLite). The remote
-/// [ApiExpenseRepository] remains preserved as `apiExpenseRepositoryProvider`.
+/// Uses the sole production implementation: [LocalExpenseRepository].
 final expenseRepositoryProvider = Provider<ExpenseRepositoryInterface>((ref) {
   return ref.watch(localExpenseRepositoryProvider);
 });
 
-/// List active expenses by project — local, no Dio.
+/// List active expenses by project from local storage.
 final expensesByProjectProvider =
     FutureProvider.family<List<ExpenseEntity>, String>((ref, projectId) async {
   final repo = ref.read(expenseRepositoryProvider);

@@ -8,7 +8,7 @@ library;
 ///
 /// Increment this when adding migrations. Each version must have a
 /// corresponding migration step in [AppDatabase].
-const int kSchemaVersion = 3;
+const int kSchemaVersion = 4;
 
 /// SQLite database file name.
 const String kDatabaseFileName = 'construction_erp.db';
@@ -51,6 +51,12 @@ const int kExchangeRateFactor = 1000000;
 /// Identity exchange rate for YER transactions (1.000000 → 1,000,000).
 const int kIdentityExchangeRate = kExchangeRateFactor;
 
+/// Default suggestion for new per-transaction SAR entries: 410 YER / SAR.
+const int kDefaultSarToYerRateScaled = 410000000;
+
+const String kDefaultLocaleCode = 'en';
+const List<String> kSupportedLocaleCodes = ['en', 'ar'];
+
 // ---------------------------------------------------------------------------
 // Rate source constants
 // ---------------------------------------------------------------------------
@@ -80,7 +86,7 @@ const List<String> kValidExchangePolicies = [
 ];
 
 // ---------------------------------------------------------------------------
-// Enum value constants (matching FastAPI backend exactly)
+// Verified business enum value constants.
 // ---------------------------------------------------------------------------
 
 const List<String> kProjectStatuses = [

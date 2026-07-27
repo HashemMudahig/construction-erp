@@ -7,17 +7,25 @@ import '../../../core/database/daos/expenses_dao.dart';
 import '../../../core/database/daos/projects_dao.dart';
 import '../../../core/database/finance/currency_conversion.dart';
 import '../../../core/uuid/uuid_util.dart';
+import '../../settings/data/local_settings_repository.dart';
+import '../../settings/domain/settings_repository_interface.dart';
 import '../domain/expense_entity.dart';
 import '../domain/expense_repository_interface.dart';
 import 'expense_mapper.dart';
 
 /// Local (Drift/SQLite) implementation of [ExpenseRepositoryInterface].
 class LocalExpenseRepository implements ExpenseRepositoryInterface {
-  LocalExpenseRepository(this._dao, this._projectsDao, this._db);
+  LocalExpenseRepository(
+    this._dao,
+    this._projectsDao,
+    this._db, [
+    this._settings,
+  ]);
 
   final ExpensesDao _dao;
   final ProjectsDao _projectsDao;
   final AppDatabase _db;
+  final SettingsRepositoryInterface? _settings;
 
   @override
   Future<List<ExpenseEntity>> listByProject(String projectId) async {
@@ -75,6 +83,10 @@ class LocalExpenseRepository implements ExpenseRepositoryInterface {
             project.fixedExchangeRateScaled! > 0) {
           finalRate = project.fixedExchangeRateScaled!;
           finalRateSource = kRateSourceProject;
+        } else if (_settings != null) {
+          finalRate =
+              (await _settings.loadSettings()).defaultSarToYerRateScaled;
+          finalRateSource = kRateSourceDefault;
         } else {
           throw ArgumentError('SAR expense requires a positive exchange rate');
         }
@@ -270,5 +282,10 @@ class LocalExpenseRepository implements ExpenseRepositoryInterface {
 final localExpenseRepositoryProvider =
     Provider<ExpenseRepositoryInterface>((ref) {
   final db = ref.watch(databaseProvider);
-  return LocalExpenseRepository(db.expensesDao, db.projectsDao, db);
+  return LocalExpenseRepository(
+    db.expensesDao,
+    db.projectsDao,
+    db,
+    ref.watch(localSettingsRepositoryProvider),
+  );
 });

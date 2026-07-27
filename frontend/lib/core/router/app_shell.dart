@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/auth_provider.dart';
+import '../../features/settings/presentation/settings_screen.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 
@@ -12,7 +12,6 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(authSessionProvider);
     final location = GoRouterState.of(context).uri.path;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -38,6 +37,10 @@ class AppShell extends ConsumerWidget {
           icon: Icons.assessment,
           label: context.tr('reports'),
           path: '/reports'),
+      _NavItem(
+          icon: Icons.settings_outlined,
+          label: context.tr('settings'),
+          path: ''),
     ];
 
     if (isMobile) {
@@ -45,7 +48,13 @@ class AppShell extends ConsumerWidget {
         body: child,
         bottomNavigationBar: NavigationBar(
           selectedIndex: section,
-          onDestinationSelected: (i) => context.go(navItems[i].path),
+          onDestinationSelected: (i) {
+            if (i == navItems.length - 1) {
+              _showSettings(context);
+            } else {
+              context.go(navItems[i].path);
+            }
+          },
           destinations: navItems
               .map((item) => NavigationDestination(
                     icon: Icon(item.icon, size: 24),
@@ -62,11 +71,7 @@ class AppShell extends ConsumerWidget {
           _Sidebar(
             selectedIndex: section,
             onNavigate: (i) => context.go(navItems[i].path),
-            userEmail: session.user?.email ?? '',
-            onLogout: () async {
-              await ref.read(authSessionProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
-            },
+            onSettings: () => _showSettings(context),
           ),
           const VerticalDivider(thickness: 1, width: 1),
           Expanded(child: child),
@@ -86,14 +91,12 @@ class _NavItem {
 class _Sidebar extends ConsumerWidget {
   final int selectedIndex;
   final ValueChanged<int> onNavigate;
-  final String userEmail;
-  final VoidCallback onLogout;
+  final VoidCallback onSettings;
 
   const _Sidebar({
     required this.selectedIndex,
     required this.onNavigate,
-    required this.userEmail,
-    required this.onLogout,
+    required this.onSettings,
   });
 
   @override
@@ -217,6 +220,24 @@ class _Sidebar extends ConsumerWidget {
             );
           }),
           const Spacer(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: InkWell(
+              onTap: onSettings,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings_outlined, size: 20),
+                    const SizedBox(width: 12),
+                    Text(context.tr('settings')),
+                  ],
+                ),
+              ),
+            ),
+          ),
           // Language Switcher
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -253,65 +274,20 @@ class _Sidebar extends ConsumerWidget {
                   .withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor:
-                          AppTheme.primaryColor.withValues(alpha: 0.2),
-                      child: const Icon(Icons.person,
-                          size: 18, color: AppTheme.primaryColor),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Admin User',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            userEmail,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 11,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const Icon(
+                  Icons.storage_outlined,
+                  size: 20,
+                  color: AppTheme.primaryColor,
                 ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: onLogout,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout,
-                            size: 18, color: theme.colorScheme.error),
-                        const SizedBox(width: 8),
-                        Text(
-                          context.tr('logout'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    locale.languageCode == 'ar'
+                        ? 'البيانات محفوظة على هذا الجهاز'
+                        : 'Data is stored on this device',
+                    style: theme.textTheme.bodySmall,
                   ),
                 ),
               ],
@@ -322,4 +298,16 @@ class _Sidebar extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _showSettings(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => const FractionallySizedBox(
+      heightFactor: 0.92,
+      child: SettingsScreen(),
+    ),
+  );
 }

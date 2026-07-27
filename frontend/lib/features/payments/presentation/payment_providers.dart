@@ -9,13 +9,12 @@ import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime payment repository provider.
 ///
-/// Uses [LocalPaymentRepository] (Drift/SQLite). The remote
-/// [ApiPaymentRepository] remains preserved as `apiPaymentRepositoryProvider`.
+/// Uses the sole production implementation: [LocalPaymentRepository].
 final paymentRepositoryProvider = Provider<PaymentRepositoryInterface>((ref) {
   return ref.watch(localPaymentRepositoryProvider);
 });
 
-/// List active payments by project — local, no Dio.
+/// List active payments by project from local storage.
 final paymentsByProjectProvider =
     FutureProvider.family<List<PaymentEntity>, String>((ref, projectId) async {
   final repo = ref.read(paymentRepositoryProvider);

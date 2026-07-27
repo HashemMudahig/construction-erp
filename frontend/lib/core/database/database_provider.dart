@@ -46,8 +46,13 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 /// require broad storage permissions.
 QueryExecutor _openConnection() {
   return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final dbFile = io.File(p.join(dir.path, kDatabaseFileName));
+    final dbFile = await resolveDatabaseFile();
     return NativeDatabase.createInBackground(dbFile);
   });
+}
+
+/// Resolves the canonical production database file without opening it.
+Future<io.File> resolveDatabaseFile() async {
+  final dir = await getApplicationDocumentsDirectory();
+  return io.File(p.join(dir.path, kDatabaseFileName));
 }

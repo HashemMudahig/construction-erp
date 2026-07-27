@@ -2,153 +2,121 @@
 
 ## Status
 
-- Status: Draft
-- Owner: Unassigned
+- Status: Completed
+- Owner: Codex
 - Created: 2026-07-22
-- Last updated: 2026-07-22
-- Implementation started: Not started
-- Implementation completed: Not started
+- Last updated: 2026-07-26
+- Implementation started: 2026-07-26
+- Implementation completed: 2026-07-26
 
 ## Objective
 
-Remove the server authentication dependency from the local runtime. Implement optional local security (PIN, biometrics) and local settings persistence (language, lock/unlock behavior).
+Persist the settings that are verified by the existing product contracts and
+remove active server-authentication state from the local application shell.
+Settings must work entirely through the local repository/DAO/SQLite path.
 
-## Current State
+## Implemented scope
 
-- Authentication uses JWT bearer tokens via `frontend/lib/features/auth/presentation/auth_provider.dart`.
-- Tokens are stored in `shared_preferences` (keys `erp_token`, `erp_email`).
-- The Dio interceptor at `frontend/lib/core/network/dio_provider.dart` injects `Authorization: Bearer <token>` on every request.
-- The router at `frontend/lib/core/router/app_router.dart` currently has auth redirect logic removed (login bypassed), but the auth provider and login screen still exist.
-- The `settings` feature at `frontend/lib/features/settings/` is scaffolded only (empty `.gitkeep` files, no implementation).
-- Language/locale is managed via `localeProvider` referenced in `frontend/lib/main.dart`.
+- Canonical singleton `app_settings` row (`id = "app"`).
+- Default SAR→YER rate stored as an exact scale-6 SQLite INTEGER.
+- Locale stored as `en` or `ar`.
+- Idempotent initialization with a 410.000000 default rate and `en` locale.
+- Non-destructive schema migration from version 3 to version 4.
+- Settings repository interface, local implementation, Riverpod state, and
+  responsive RTL/LTR settings UI.
+- Default rate is used only for newly created SAR payments/expenses when no
+  project-fixed or manually supplied rate exists.
+- Existing transaction snapshots are never recalculated.
+- Local shell no longer watches JWT/auth session state and does not present
+  login/logout claims.
 
-## Target State
+## Explicitly out of scope
 
-- No server login required at runtime.
-- Optional local PIN protection (user can enable/disable).
-- Optional biometric authentication (if device supports it).
-- Local settings persisted in `shared_preferences` or a settings table.
-- Language preference persisted locally.
-- Lock/unlock behavior when PIN is enabled.
-- Secure storage for PIN hash if implemented.
-- No JWT token storage or injection in local mode.
+- PIN, password, biometric authentication, encryption, and lock timeout.
+  None had a verified product contract, so the UI truthfully states that no
+  additional in-app lock is configured.
+- Backup/restore (Phase 11).
+- Global removal of API/auth/remote-adapter source (Phase 12).
+- Backend or Alembic changes.
+- Theme persistence; no verified theme control existed.
 
-## Scope
+## Runtime flow
 
-- Remove server authentication dependency from local runtime.
-- Implement optional local PIN.
-- Implement optional biometrics.
-- Local settings persistence.
-- Language persistence.
-- Lock/unlock behavior.
-
-## Out of Scope
-
-- Multi-user authentication.
-- Remote authentication (preserved for future use but not active).
-- Cloud-based settings sync.
-
-## Prerequisites
-
-- Phase 02 (Local Database Foundation) must be completed.
-- ADR-010 (No server login in local runtime) must be Accepted.
-
-## Relevant Current Files
-
-- `frontend/lib/features/auth/presentation/auth_provider.dart`
-- `frontend/lib/features/auth/presentation/login_screen.dart`
-- `frontend/lib/features/auth/data/auth_repository.dart`
-- `frontend/lib/features/auth/domain/user_entity.dart`
-- `frontend/lib/core/network/dio_provider.dart` — `_AuthInterceptor` class.
-- `frontend/lib/core/router/app_router.dart` — Current routing.
-- `frontend/lib/features/settings/` — Empty scaffold.
-- `frontend/lib/main.dart` — `localeProvider` usage.
-
-## Expected New Files
-
-- `frontend/lib/features/settings/domain/settings_entity.dart` (proposed)
-- `frontend/lib/features/settings/data/local_settings_repository.dart` (proposed)
-- `frontend/lib/features/settings/presentation/settings_screen.dart` (proposed)
-- `frontend/lib/features/settings/presentation/settings_provider.dart` (proposed)
-- `frontend/lib/features/security/presentation/local_auth_provider.dart` (proposed)
-
-## Data Model Impact
-
-- A `settings` table or `shared_preferences` keys for:
-  - `pin_enabled` (bool)
-  - `pin_hash` (String, stored in secure storage if available)
-  - `biometric_enabled` (bool)
-  - `language` (String, e.g., "ar", "en")
-  - `lock_timeout_minutes` (int)
-
-## Repository and Provider Impact
-
-```
+```text
 SettingsScreen
-→ settingsProvider
+→ settingsProvider / localeProvider
+→ SettingsRepositoryInterface
 → LocalSettingsRepository
-→ shared_preferences / settings table
-→ SQLite (optional)
+→ AppSettingsDao
+→ Drift / SQLite
 ```
 
-## Implementation Tasks
+The local settings path has no Dio, HTTP, JWT, token, or SharedPreferences
+dependency. Remote authentication source remains preserved but inactive.
 
-- [ ] Define settings entity and local settings repository.
-- [ ] Implement local settings persistence (language, PIN enabled, biometric enabled, lock timeout).
-- [ ] Implement optional local PIN (hash and store securely).
-- [ ] Implement optional biometric authentication using `local_auth` package (if approved).
-- [ ] Implement lock/unlock behavior (app locks after timeout when PIN is enabled).
-- [ ] Implement settings screen UI.
-- [ ] Add `/settings` route to `app_router.dart`.
-- [ ] Migrate `localeProvider` to use local settings persistence.
-- [ ] Ensure no JWT token is required or stored in local mode.
-- [ ] Write unit tests for settings persistence.
-- [ ] Write tests for PIN enable/disable/verify flow.
-- [ ] Run `flutter analyze`.
+## Data contract
 
-## Validation Plan
+| Field | SQLite representation | Validation | Default |
+|---|---|---|---|
+| `default_sar_to_yer_rate` | INTEGER, scale 6 | finite decimal, greater than zero, exactly representable | `410000000` (410.000000) |
+| `locale_code` | TEXT | `en` or `ar` | `en` |
 
-- Static analysis: `flutter analyze`.
-- Unit tests: Settings persistence, PIN flow.
-- Persistence after restart: Settings persist across app restarts.
-- Offline behavior: All settings work offline.
-- Security: PIN is hashed, not stored in plain text.
+Unknown or malformed stored values fall back safely without deleting unrelated
+settings. Invalid updates are rejected and the last valid published state is
+retained.
 
-## Acceptance Criteria
+## Exchange-rate precedence
 
-1. No server login is required to use the app.
-2. Optional PIN can be enabled, verified, and disabled.
-3. Settings (language, PIN, biometric) persist across restarts.
-4. Settings screen is accessible and functional.
-5. `flutter analyze` reports zero errors.
-6. All settings tests pass.
+For a new SAR payment or expense:
 
-## Risks
+1. project fixed rate;
+2. explicitly entered per-transaction rate;
+3. local default rate.
 
-See [risk_register.md](risk_register.md). Key risks:
+YER transactions keep identity conversion. Changing the default affects only
+future transactions and never mutates stored financial history.
 
-- R-019: Uncontrolled `shared_preferences` use. Mitigated by centralizing settings access.
-- R-002: App uninstall causes total data loss (including settings). Mitigated by backup (Phase 11).
+## Validation completed
 
-## Rollback Strategy
+- `flutter pub get`: exit 0 (5.9s).
+- `flutter analyze --no-pub`: exit 0, zero issues (7.8s final run).
+- `flutter test test/features/settings --no-pub --concurrency=1 -r expanded`:
+  exit 0, 27 passed (8.1s final run).
+- Dashboard 18, Reports 27, Clients 36, Projects 30, Milestones 30,
+  Payments 35, and Expenses 40 tests passed.
+- Database: 75 passed (6.1s); contract: 49 passed (4.1s).
+- Full Flutter: 370 passed (27.9s).
+- FastAPI baseline: 17 passed (8.7s command time), without backend changes.
+- `dart run build_runner build --delete-conflicting-outputs`: exit 0
+  (26.3s command time); no generated file required a tracked change.
+- Persistence across database reopen and v3→v4 migration are covered.
+- Settings screen is covered across ten phone/tablet/desktop RTL/LTR viewports,
+  including loading, local error, validation, and save states.
 
-1. Revert settings changes.
-2. Re-enable auth redirect in router (if needed for backend mode).
-3. Delete settings and security files.
+## Acceptance criteria
 
-## Documentation Updates Required on Completion
+- [x] No server login is required by the local application shell.
+- [x] Verified settings persist locally across restarts.
+- [x] Settings are accessible and functional offline.
+- [x] Invalid values do not replace valid published state.
+- [x] Financial history is immutable when the default rate changes.
+- [x] Analyzer and all required tests pass.
 
-- `docs/offline_migration/README.md` — Update phase 10 status.
-- `frontend/HISTORY.md` — Add entry for settings and local security.
-- `docs/history.md` — Add entry for settings and local security.
+## Risks and boundaries
 
-## Completion Record
+- Uninstalling or clearing application data still removes local settings and
+  business data. Backup/restore remains Phase 11 and was not started.
+- Device-level access control is the only security boundary in this phase.
+- Preserved remote auth/token code must not be interpreted as active local
+  runtime behavior.
 
-- Completion date: Not completed
-- Commands executed: None
-- Tests passed: N/A
-- Analyzer result: N/A
-- Files created: None
-- Files modified: None
-- Remaining issues: None
-- Git commit: Not created by agent
+## Completion record
+
+- Completion date: 2026-07-26
+- Database schema: version 4
+- New feature files: settings domain, repository, providers, screen, and tests
+- Backend changes: none
+- Router changes: none
+- Backup/restore changes: none
+- Git branch/commit created by Codex: none
+- Next phase: Phase 11 is Ready; it was not started

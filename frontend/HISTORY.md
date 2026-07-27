@@ -1,5 +1,66 @@
 # Frontend History
 
+## 2026-07-26 (Phase 13 — Release Validation)
+
+- Added deterministic startup recovery for canonical, rollback, and incoming
+  SQLite files with quarantine and controlled failure.
+- Removed INTERNET from the release manifest while retaining debug tooling
+  permission.
+- Added 13 release/recovery tests; full Flutter 435 passed.
+- Built release APK/AAB. Production signing, permanent package ID, and physical
+  update validation remain manual.
+
+## 2026-07-26 (Phase 12 — Runtime API/Auth Removal)
+
+### Phase 12 Completed
+
+- Deleted production Dio/network configuration, endpoints, remote repositories,
+  and obsolete authentication/session/login runtime.
+- Moved five historical HTTP DTO contracts to test-only fixtures and removed
+  `dio` plus `shared_preferences`.
+- Retained Drift/SQLite, exact finance, Riverpod, localization, archive, crypto,
+  and file selection. Router startup remains Dashboard-first.
+- Backup/Restore remains functional and carries no token or password.
+- Validation: analyzer clean; architecture 10; full Flutter 422; debug APK
+  built; FastAPI baseline 17. Phase 13 was not started.
+
+## 2026-07-26 (Phase 11 — Backup and Restore)
+
+### Phase 11 Completed
+
+- Added typed Backup manifest/preview/results and repository boundary with
+  isolated snapshot, archive, checksum, and restore orchestration services.
+- Created consistent SQLite snapshots with `VACUUM INTO`, exact record counts,
+  streaming SHA-256, strict two-entry `.cerpbackup` archives, traversal and
+  size defenses, staging migration, and integrity/foreign-key validation.
+- Added close/replace/recreate lifecycle and `.pre_restore` rollback until
+  post-reopen validation succeeds.
+- Integrated accessible Backup/Restore controls into local Settings with
+  system file selection, explicit replacement confirmation, progress states,
+  and truthful unencrypted-file notice.
+- No API/Auth removal, cloud operation, broad storage permission, attachment
+  claim, router change, or backend production change was introduced.
+- Validation: analyzer clean; Backup/Restore 42; database 75; contract 49;
+  full Flutter 412; FastAPI baseline 17.
+
+## 2026-07-26 (Phase 10 — Settings and Local Security)
+
+### Phase 10 Completed
+
+- Added typed settings domain/repository/provider/UI layers backed by the
+  singleton Drift `app_settings` row.
+- Persisted an exact scale-6 default SAR→YER rate and `en`/`ar` locale via
+  schema version 4, including non-destructive migration and safe fallbacks.
+- Applied the default only to newly created SAR payments/expenses after
+  project-fixed and manual-rate precedence; historical snapshots are immutable.
+- Replaced local shell auth-session/login/logout presentation with truthful
+  offline single-device state. Preserved remote auth/Dio code is inactive.
+- Added 27 Settings tests across persistence, migration, finance integration,
+  validation, loading/error, and ten responsive RTL/LTR viewports.
+- Validation: analyzer clean; database 75; contract 49; full Flutter 370;
+  FastAPI baseline 17.
+- Phase 11 is Ready and was not started.
+
 ## 2026-07-26 (Phase 09 — Reports Local Queries)
 
 ### Phase 09 Completed

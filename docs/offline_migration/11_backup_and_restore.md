@@ -2,158 +2,175 @@
 
 ## Status
 
-- Status: Draft
-- Owner: Unassigned
+- Status: Completed
+- Owner: Codex
 - Created: 2026-07-22
-- Last updated: 2026-07-22
-- Implementation started: Not started
-- Implementation completed: Not started
+- Last updated: 2026-07-26
+- Implementation started: 2026-07-26
+- Implementation completed: 2026-07-26
 
 ## Objective
 
-Implement database backup and restore functionality to protect against data loss from app uninstall, device loss, or database corruption. The backup must include the SQLite database file, a manifest with schema version and backup format version, and checksums for integrity verification.
+Provide an offline, portable, full-database backup and a validated
+replacement restore with rollback. No cloud service, API, JWT, account, or
+encryption is involved.
 
-## Current State
+## Previous state
 
-The application has no backup or restore functionality. All data is stored in the backend (PostgreSQL) or, after migration, in the local SQLite database. There is no mechanism to export or import data.
+The application stored all active business data in
+`construction_erp.db` under the application documents directory, but exposed
+no backup or restore operation. `databaseProvider` owned a lazy
+`NativeDatabase` and closed it on provider disposal.
 
-Attachments are not currently implemented in the application. The backup design must account for their future addition but should not claim they exist.
+## Implemented architecture
 
-## Target State
-
-- A backup feature that exports the SQLite database file to a user-chosen location.
-- A ZIP archive containing:
-  - The SQLite database file.
-  - A manifest file (JSON) with:
-    - Schema version.
-    - Backup format version.
-    - Timestamp.
-    - Checksums (SHA-256) for the database file.
-  - Optional: attachment files (when attachments are implemented in the future).
-- A restore feature that:
-  - Validates the backup archive before restoring.
-  - Creates a safe backup of the current database before replacing it.
-  - Validates the restored database in a temporary location.
-  - Atomically replaces the active database.
-  - Handles failure recovery (restore the safe backup if validation fails).
-- Integration with Android Storage Access Framework for file picking.
-
-## Scope
-
-- Database backup to file.
-- Database restore from file.
-- ZIP manifest with schema version and checksums.
-- Safe backup before restore.
-- Temporary database validation.
-- Atomic replacement.
-- Android Storage Access Framework integration.
-- Failure recovery.
-
-## Out of Scope
-
-- Cloud backup or sync.
-- Attachment backup (attachments not yet implemented).
-- Cross-version migration during restore (handled by Drift migrations on open).
-
-## Prerequisites
-
-- Phase 02 (Local Database Foundation) must be completed.
-- ADR-009 (Backup and restore is required before client delivery) must be Accepted.
-
-## Relevant Current Files
-
-- `frontend/lib/core/database/app_database.dart` (proposed, from Phase 02).
-- `frontend/lib/core/database/database_provider.dart` (proposed, from Phase 02).
-
-## Expected New Files
-
-- `frontend/lib/features/backup/data/backup_service.dart` (proposed)
-- `frontend/lib/features/backup/data/restore_service.dart` (proposed)
-- `frontend/lib/features/backup/domain/backup_manifest.dart` (proposed)
-- `frontend/lib/features/backup/presentation/backup_screen.dart` (proposed)
-- `frontend/lib/features/backup/presentation/backup_provider.dart` (proposed)
-
-## Data Model Impact
-
-No data model changes. Backup operates on the database file level.
-
-## Repository and Provider Impact
-
-```
-BackupScreen
-→ backupProvider
-→ BackupService / RestoreService
-→ AppDatabase (close, copy file, reopen)
-→ File system / Android SAF
+```text
+Settings / BackupRestoreSection
+→ BackupRestoreNotifier
+→ BackupRepositoryInterface
+→ LocalBackupRepository
+├── DatabaseSnapshotService
+├── BackupArchiveService
+├── BackupChecksumService
+└── database lifecycle callbacks
+    → close database → replace → invalidate/recreate databaseProvider
 ```
 
-## Implementation Tasks
+Presentation selects files and displays state only. It has no `AppDatabase`,
+DAO, SQL, archive, or checksum dependency.
 
-- [ ] Define `BackupManifest` class (schema_version, backup_format_version, timestamp, checksums).
-- [ ] Implement `BackupService.createBackup()` — close database, copy file, compute SHA-256, create ZIP with manifest.
-- [ ] Implement `RestoreService.validateBackup()` — extract ZIP, verify manifest, verify checksums.
-- [ ] Implement `RestoreService.restoreBackup()` — create safe backup of current DB, validate restored DB in temporary location, atomically replace.
-- [ ] Implement failure recovery (restore safe backup if validation fails).
-- [ ] Integrate with Android Storage Access Framework for file picking.
-- [ ] Implement backup screen UI.
-- [ ] Add `/backup` route.
-- [ ] Write unit tests for backup creation.
-- [ ] Write unit tests for restore validation.
-- [ ] Write tests for invalid backup rejection.
-- [ ] Write tests for interrupted restore recovery.
-- [ ] Write tests for atomic replacement.
-- [ ] Run `flutter analyze`.
+## Snapshot strategy
 
-## Validation Plan
+Phase 11 uses SQLite `VACUUM INTO` against the active Drift connection.
+SQLite produces a transactionally consistent, standalone database snapshot.
+The live file is never copied blindly and no `-wal` or `-shm` file enters the
+backup. Snapshot failure does not close or mutate the active database.
 
-- Static analysis: `flutter analyze`.
-- Unit tests: Backup creation, restore validation, invalid backup rejection.
-- Persistence after restart: Backup, close app, restore on fresh install, verify data.
-- Offline behavior: Backup and restore work offline.
-- Failure recovery: Interrupt restore, verify safe backup is restored.
-- Checksum verification: Modify database file in ZIP, verify restore rejects it.
-- Schema version check: Attempt to restore a backup with a different schema version, verify appropriate handling.
+## Backup format
 
-## Acceptance Criteria
+The portable `.cerpbackup` file is ZIP-compatible and contains exactly:
 
-1. Backup creates a valid ZIP with database file and manifest.
-2. Restore validates the backup before applying it.
-3. Restore creates a safe backup of the current database before replacing.
-4. Restore atomically replaces the active database.
-5. Invalid backups (corrupted, wrong checksum, missing manifest) are rejected.
-6. Interrupted restore recovers gracefully.
-7. Backup and restore work offline.
-8. `flutter analyze` reports zero errors.
-9. All backup/restore tests pass.
+- `manifest.json`
+- `construction_erp.db`
 
-## Risks
+Compressed input is limited to 256 MiB and the extracted database to 512 MiB.
+Nested, parent-relative, absolute, backslash, and Windows drive-letter entry
+paths are rejected.
 
-See [risk_register.md](risk_register.md). Key risks:
+## Manifest contract
 
-- R-005: Failed restore could corrupt data. Mitigated by safe backup and temporary validation.
-- R-006: Partial backup if interrupted. Mitigated by checksum verification.
-- R-016: Android storage permissions. Mitigated by using Storage Access Framework.
-- R-017: Release/debug differences in file access. Mitigated by testing both configurations.
+Format version 1 uses strict UTF-8 JSON fields:
 
-## Rollback Strategy
+- `backupFormatVersion`
+- `applicationId`
+- `createdAtUtc`
+- `databaseEntryName`
+- `databaseSchemaVersion`
+- `databaseSizeBytes`
+- `databaseSha256`
+- `applicationVersion`
+- `recordCounts` for Clients, Projects, Milestones, Payments, Expenses, and
+  AppSettings
 
-1. Delete backup/restore feature files.
-2. Remove `/backup` route.
-3. The application continues to function without backup capability (data remains in local database).
+Missing required fields, invalid UTC timestamps, wrong product identifiers,
+invalid checksums, unsupported format versions, and future schemas are
+rejected. Unknown optional fields are harmless.
 
-## Documentation Updates Required on Completion
+## Backup creation
 
-- `docs/offline_migration/README.md` — Update phase 11 status.
-- `frontend/HISTORY.md` — Add entry for backup and restore.
-- `docs/history.md` — Add entry for backup and restore.
+1. Select a destination through the system file selector.
+2. Enter `creatingBackup` maintenance state and block duplicate operations.
+3. Create the temporary `VACUUM INTO` snapshot.
+4. Run `integrity_check`, `foreign_key_check`, core-table checks, and counts.
+5. Stream SHA-256 calculation.
+6. Create the two-entry archive and copy it to the selected destination.
+7. Verify the output and remove all temporary files.
 
-## Completion Record
+Cancellation is an idle result, not an error. Existing destination files are
+not silently overwritten.
 
-- Completion date: Not completed
-- Commands executed: None
-- Tests passed: N/A
-- Analyzer result: N/A
-- Files created: None
-- Files modified: None
-- Remaining issues: None
-- Git commit: Not created by agent
+## Restore validation and preview
+
+The selected file is copied to an application-controlled temporary directory.
+The archive structure, paths, sizes, strict manifest, declared file size, and
+SHA-256 are validated before SQLite is opened. The staging database is opened
+through the current Drift migration chain, then integrity, foreign keys,
+schema, tables, and record counts are revalidated.
+
+The UI shows the UTC creation date, record counts, and an explicit warning
+that restore replaces all current local data and is not a merge. Cancellation
+deletes staging files and never mutates the active database.
+
+## Schema compatibility
+
+- Schema greater than current v4: rejected.
+- Schema below v1: rejected.
+- Schemas v1–v3: migrated only on the extracted staging copy through the
+  verified Drift migration chain.
+- The post-migration staging schema must equal v4 and pass all checks.
+
+## Replacement and rollback
+
+After explicit confirmation:
+
+1. Copy validated staging data to an incoming sibling file.
+2. Close the active database and remove closed sidecars.
+3. Rename the current database to `.pre_restore`.
+4. Rename incoming data to the canonical filename.
+5. Recreate `databaseProvider`; dependent watched repositories/providers are
+   invalidated with it.
+6. Recheck integrity, foreign keys, schema, and record counts.
+7. Delete rollback and staging data only after success.
+
+If replacement, reopening, or final validation fails, the replacement is
+closed and removed, `.pre_restore` is restored, reopened, and validated. The
+user receives a rollback-safe failure message.
+
+## Included data
+
+All rows in Clients, Projects, Milestones, Payments, Expenses, and AppSettings
+are included. This includes archived Clients, soft-deleted financial rows,
+group identifiers, original currencies, immutable exchange-rate snapshots,
+converted YER amounts, locale, and default rate.
+
+## Excluded data and limitations
+
+- JWT, refresh tokens, passwords, secure storage, SharedPreferences, API
+  caches, logs, and build files are excluded.
+- Attachments/receipts do not exist and are not claimed as included.
+- Backups are **not encrypted**. Users must store them in a protected place.
+- No cloud upload, synchronization, merge restore, or analytics exists.
+- The current checked-in Flutter platform is Android. `file_selector` uses the
+  scoped system document UI without broad storage permissions; other platform
+  runners require their normal project configuration before release testing.
+
+## UI and accessibility
+
+Backup/Restore is embedded in local Settings. It exposes idle, creating,
+validating, preview/confirmation, restoring, completed, and failed states.
+Buttons are disabled during maintenance. Ten English/Arabic phone, tablet,
+and desktop-sized layouts pass without overflow; long errors remain readable.
+
+## Validation
+
+- `flutter pub get`: exit 0, 8.4s.
+- `flutter analyze --no-pub`: exit 0, zero findings, 4.2s final run.
+- Focused Backup/Restore: 42 passed, exit 0, 8.4s final run.
+- Settings 27 (7.4s), Dashboard 18 (7.5s), Reports 27 (13.8s),
+  Clients 36 (6.3s), Projects 30 (6.3s), Milestones 30 (6.5s),
+  Payments 35 (6.6s), and Expenses 40 (6.4s).
+- Database 75 (8.1s), contract 49 (6.5s).
+- Full Flutter: 412 passed, exit 0, 32.4s final run.
+- FastAPI baseline: 17 passed, exit 0, 9.3s.
+
+## Completion record
+
+- Completion date: 2026-07-26
+- Backup format: `.cerpbackup`, ZIP-compatible, format version 1
+- Active schema: 4
+- Snapshot method: SQLite `VACUUM INTO`
+- Checksum: streaming SHA-256
+- Router changes: none
+- Backend/Alembic changes: none
+- Branch/commit created by Codex: none
+- Phase 12: Ready; not started

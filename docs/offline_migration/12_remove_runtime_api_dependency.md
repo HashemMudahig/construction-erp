@@ -2,145 +2,109 @@
 
 ## Status
 
-- Status: Draft
-- Owner: Unassigned
+- Status: Completed
+- Owner: Codex
 - Created: 2026-07-22
-- Last updated: 2026-07-22
-- Implementation started: Not started
-- Implementation completed: Not started
+- Last updated: 2026-07-26
+- Implementation started: 2026-07-26
+- Implementation completed: 2026-07-26
 
-## Objective
+## Objective and final architecture
 
-Remove all runtime HTTP dependency from the Flutter application. Ensure no Dio provider, API repository, or endpoint constant is invoked during normal local operation. Preserve the FastAPI backend and remote-capable code for future use, but ensure the local runtime path makes zero HTTP calls.
+The production Flutter package is now:
 
-## Current State
+```text
+Flutter UI → Riverpod → local repositories → Drift DAOs → SQLite
+```
 
-After Phases 03–09, all entity and dashboard/report providers use local repositories. However, the following HTTP-related code still exists:
+It contains no Dio client, HTTP endpoint configuration, JWT/authentication
+runtime, authorization interceptor, token persistence, login route, or remote
+business repository. The separately preserved FastAPI backend is not consumed
+by Flutter and was not modified.
 
-- `frontend/lib/core/network/dio_provider.dart` — `dioProvider`, `_AuthInterceptor`, `_EnvelopeInterceptor`, `ApiException`, `ApiError`.
-- `frontend/lib/core/config/app_config.dart` — `appConfig` with `baseUrl`.
-- `frontend/lib/core/constants/endpoints.dart` — All API endpoint constants.
-- `frontend/lib/features/auth/` — `AuthRepository`, `AuthSessionNotifier`, `LoginScreen`.
-- Feature `data/` directories still contain Dio-based repository classes (e.g., `ClientRepository`, `ProjectRepository`, etc.) — preserved but unused.
+## Initial inventory and classification
 
-## Target State
+| Inventory | Classification | Resolution |
+|---|---|---|
+| Dio provider, app config, endpoints | Remote-only obsolete frontend | Removed |
+| Auth repository/entity/provider/login UI | Remote-only obsolete frontend | Removed |
+| Remote feature repositories | Remote-only obsolete frontend | Removed |
+| Five HTTP DTO modules | Historical test-contract value | Moved from `lib/` to test fixtures |
+| Domain models and repository interfaces | Required local domain code | Retained |
+| Local repositories, DAOs, Drift database | Active local runtime | Retained |
+| Settings and Backup/Restore | Active local runtime | Retained |
+| Archive, crypto, file selector, Drift/SQLite/path | Required local dependencies | Retained |
+| FastAPI and Alembic | Separate preserved backend | Untouched |
 
-- No HTTP call occurs during normal local application runtime.
-- The Dio provider and API repositories remain in the codebase, preserved and buildable, but are not wired into any active provider.
-- The auth provider and login screen are either removed or gated behind a future "remote mode" flag.
-- Endpoint constants remain for reference but are not called.
-- The app starts directly to the dashboard with no network check.
-- Criteria proving no HTTP call occurs are documented and tested.
+Complete call-site inspection found no unresolved item and no local form or
+mapper depending on an HTTP DTO.
 
-## Scope
+## Removal record
 
-- Identify and disconnect all remaining Dio usage from active providers.
-- Clean up router (remove any auth redirect if still present).
-- Remove or gate auth provider.
-- Verify no HTTP call occurs at startup or during any operation.
-- Preserve FastAPI backend and remote-capable code.
+- Removed Dio configuration/interceptors/network exceptions, base URL,
+  endpoints, and the `dio` dependency.
+- Removed auth/session/user/login/logout/token runtime. No replacement password,
+  PIN, biometric, encryption, or fake authentication was introduced.
+- Removed remote adapters for Clients, Projects, Milestones, Payments, Expenses,
+  Dashboard, and Reports.
+- Removed `shared_preferences`; it had no verified non-auth production owner.
+- Retained all local, exact-finance, localization, and Backup/Restore packages.
 
-## Out of Scope
+Git history archives deleted adapters. Historical DTO contract fixtures live
+only under `test/` and are not shipped.
 
-- Deleting the FastAPI backend source code.
-- Deleting Dio provider or API repository classes (preserved for future use).
-- Implementing a remote/local mode switch (future enhancement).
+## Startup, errors, and security
 
-## Prerequisites
+The production router was not changed. Startup opens Dashboard directly with no
+login flash, auth loading, token read, or background request. AppShell has no
+user/session/logout placeholder. Active UI uses local validation, database, and
+file/backup error models rather than HTTP/auth/network messages.
 
-- Phases 03–09 (all entity, dashboard, and report local storage) must be completed.
-- Phase 10 (Settings and Local Security) must be completed.
-- ADR-002 (Preserve FastAPI backend) must be Accepted.
-- ADR-010 (No server login in local runtime) must be Accepted.
+Security copy truthfully relies on device/OS access protection and claims no
+app PIN, biometric protection, database encryption, or mandatory login.
 
-## Relevant Current Files
+## Backup/Restore regression
 
-- `frontend/lib/core/network/dio_provider.dart`
-- `frontend/lib/core/config/app_config.dart`
-- `frontend/lib/core/constants/endpoints.dart`
-- `frontend/lib/core/router/app_router.dart`
-- `frontend/lib/features/auth/` — All auth files.
-- `frontend/lib/features/*/data/*_repository.dart` — All Dio-based repositories.
-- `frontend/lib/main.dart`
+Phase 11 remains intact: `.cerpbackup` snapshot creation, manifest and SHA-256
+validation, staging migration, rollback, provider recreation, and responsive
+UI pass. Backups contain no password, token, or credential. `archive`, `crypto`,
+and `file_selector` remain. Schema remains version 4.
 
-## Expected New Files
+## Architecture enforcement
 
-No new files expected. This phase involves disconnection and cleanup.
+`test/architecture/phase12_runtime_architecture_test.dart` verifies no
+production network/auth source or dependency, no remote repositories, direct
+Dashboard startup, local-only repository ownership, no credential settings,
+backup isolation, required package retention, and schema-v4 offline opening.
+Old remote-compilation assertions were removed; meaningful JSON contract tests
+use test-only fixtures.
 
-## Data Model Impact
+## Validation
 
-None.
+From `frontend/`:
 
-## Repository and Provider Impact
+- `flutter clean`: exit 0, 2.9s.
+- `flutter pub get`: exit 0, 3.4s.
+- `flutter analyze --no-pub`: exit 0, 5.2s, no issues.
+- Architecture: 10 passed.
+- Backup 42; Settings 27; Dashboard 18; Reports 27.
+- Clients 36; Projects 30; Milestones 30; Payments 35; Expenses 40.
+- Database 75; contracts 49.
+- Full Flutter: 422 passed, exit 0, 33.2s.
+- `flutter build apk --debug --no-pub`: exit 0, 92.2s; APK produced.
 
-All active providers must depend only on local repositories. Dio-based repositories remain in the codebase but are not referenced by any active provider.
+From `backend/`:
 
-## Implementation Tasks
+- `python -m pytest tests/test_baseline_contracts.py -v`: exit 0, 8.7s;
+  17 passed with three non-failing environment/deprecation warnings.
 
-- [ ] Audit all providers to confirm none import or use `dioProvider`.
-- [ ] Audit all screens to confirm none directly call Dio or API repositories.
-- [ ] Remove auth redirect from router (if still present).
-- [ ] Remove or gate `authSessionProvider` (either delete or wrap in a feature flag).
-- [ ] Remove or gate `LoginScreen` route.
-- [ ] Ensure `main.dart` starts the app directly at `/` (dashboard) with no auth check.
-- [ ] Verify `dioProvider` is not instantiated at runtime (add a test that checks no Dio instance is created).
-- [ ] Verify all Dio-based repository classes remain buildable (they are preserved, not deleted).
-- [ ] Verify the FastAPI backend remains buildable and its tests pass.
-- [ ] Document which providers and files are now unused but preserved.
-- [ ] Write a test that verifies no HTTP call is made during app startup and a full CRUD cycle.
-- [ ] Run `flutter analyze`.
-- [ ] Run backend tests (`python -m pytest` from `backend/`).
+## Completion record
 
-## Validation Plan
-
-- Static analysis: `flutter analyze`.
-- Backend tests: `python -m pytest` from `backend/`.
-- HTTP call verification: Run app in airplane mode, perform all CRUD operations, verify no errors and no HTTP calls.
-- Startup test: App starts directly to dashboard with no network.
-- Compile-time check: Dio-based repositories compile without errors (preserved code).
-- Regression checks: All features (clients, projects, milestones, payments, expenses, dashboard, reports) work offline.
-
-## Acceptance Criteria
-
-1. No HTTP call occurs during app startup.
-2. No HTTP call occurs during any CRUD operation.
-3. No HTTP call occurs during dashboard or report queries.
-4. `dioProvider` is not instantiated at runtime.
-5. Auth provider and login screen are removed or gated.
-6. Router starts directly at dashboard.
-7. All Dio-based repository classes remain buildable.
-8. FastAPI backend remains buildable and tests pass.
-9. `flutter analyze` reports zero errors.
-10. App functions fully in airplane mode.
-
-## Risks
-
-See [risk_register.md](risk_register.md). Key risks:
-
-- R-020: Accidental continued HTTP calls. Mitigated by HTTP call verification test.
-- R-017: Release/debug differences. Mitigated by testing both configurations.
-
-## Rollback Strategy
-
-1. Re-connect providers to Dio-based repositories.
-2. Re-enable auth redirect in router.
-3. The application returns to its server-dependent architecture.
-
-## Documentation Updates Required on Completion
-
-- `docs/offline_migration/README.md` — Update phase 12 status.
-- `docs/architecture.md` — Update to reflect local-only runtime.
-- `docs/tech_stack.md` — Update to reflect Dio as "Preserved for future use".
-- `frontend/HISTORY.md` — Add entry for API dependency removal.
-- `docs/history.md` — Add entry for API dependency removal.
-
-## Completion Record
-
-- Completion date: Not completed
-- Commands executed: None
-- Tests passed: N/A
-- Analyzer result: N/A
-- Files created: None
-- Files modified: None
-- Remaining issues: None
-- Git commit: Not created by agent
+- Acceptance criteria: Passed.
+- Production router: Unchanged.
+- Backend production/Alembic: Unchanged.
+- Branch/commit created: No.
+- Phase 13 started: No.
+- Phase 13 carry-over: abandoned `.pre_restore`/`.incoming` startup recovery,
+  release-platform and installation/upgrade validation, and production
+  data-lifecycle checks.

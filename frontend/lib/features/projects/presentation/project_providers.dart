@@ -8,8 +8,7 @@ import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime project repository provider.
 ///
-/// Uses [LocalProjectRepository] (Drift/SQLite). The remote
-/// [ApiProjectRepository] remains preserved as `apiProjectRepositoryProvider`.
+/// Uses the sole production implementation: [LocalProjectRepository].
 final projectRepositoryProvider = Provider<ProjectRepositoryInterface>((ref) {
   return ref.watch(localProjectRepositoryProvider);
 });
@@ -143,7 +142,7 @@ final projectDetailProvider =
   return project;
 });
 
-/// Local profitability provider — does not call Dio.
+/// Local profitability provider backed by SQLite aggregates.
 final projectFinancialSummaryProvider =
     FutureProvider.family<ProjectFinancialSummary, String>(
         (ref, projectId) async {

@@ -9,8 +9,9 @@ import '../domain/dashboard_models.dart';
 import '../../../core/localization/app_localizations.dart';
 
 String _formatYer(int amount, String languageCode) {
-  return NumberFormat.decimalPattern(languageCode == 'ar' ? 'ar' : 'en')
-      .format(amount);
+  // Preserve the established accounting display contract: Western digits are
+  // used for YER amounts in both UI languages.
+  return NumberFormat.decimalPattern('en').format(amount);
 }
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -89,8 +90,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
         ),
-        // Logout action button
-
         const SizedBox(width: 8),
       ],
     );

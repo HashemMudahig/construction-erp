@@ -1,5 +1,26 @@
 # Risk Register
 
+## Phase 13 final risks
+
+Interrupted Restore and missing/corrupt canonical risks are mitigated by
+validated, deterministic startup recovery. Network/storage permission leakage
+is closed by merged-manifest tests and inspection. Remaining distribution risks
+are owned by the release manager: permanent application ID, production signing,
+physical clean-install/update, system file-selector, airplane-mode, and
+on-device performance validation.
+
+## Phase 12 closure and Phase 13 carry-over
+
+Architecture scans, provider tests, responsive suites, 422 full Flutter tests,
+and the Android build close the risks of remaining API/token references, stale
+remote tests, HTTP DTO coupling, removed plugin dependencies, router/auth
+regression, misleading security UI, and Backup/Restore invalidation.
+
+Future networking requires an explicit architecture decision. Phase 13 retains
+startup recovery for abandoned `.pre_restore`/`.incoming` files, release
+platform validation, installation/upgrade validation, and production
+data-lifecycle checks.
+
 > **Identified risks for the offline migration.**
 
 ## Status Values
@@ -40,7 +61,22 @@
 | R-016 | Android storage permissions denied | Medium | High | Backup/restore fails with permission error | Use Android Storage Access Framework (user picks file location). Handle permission denial gracefully. | Unassigned | Open |
 | R-017 | Release/debug differences in database behavior | Low | Medium | App works in debug but fails in release | Test both debug and release configurations (Phase 13). | Unassigned | Open |
 | R-018 | Attachment path invalidation | Low | Medium | Attachment file not found after restore | Attachments not yet implemented. Account for path migration in backup manifest when implemented. | Unassigned | Open |
-| R-019 | Uncontrolled SharedPreferences use | Medium | Low | Settings scattered across multiple keys | Centralize settings access in LocalSettingsRepository (Phase 10). | Unassigned | Open |
+| R-019 | Uncontrolled SharedPreferences use | Medium | Low | Settings scattered across multiple keys | Verified settings are centralized in LocalSettingsRepository and SQLite. Preserved remote token preferences are inactive in local runtime. | Codex | Mitigated (Phase 10) |
+| R-020 | Malformed or imprecise exchange-rate setting | Low | High | Settings validation or migration test fails | Exact scale-6 INTEGER, shared finance parser, positive/precision validation, and safe read fallback. | Codex | Mitigated (Phase 10) |
+| R-021 | Default-rate change recalculates financial history | Low | Critical | Stored snapshots/totals change after a setting update | Default is consulted only during creation; regression tests compare existing Payment, Expense, and Project fixed-rate rows. | Codex | Mitigated (Phase 10) |
+| R-022 | Local runtime accidentally depends on JWT | Low | High | Offline screen blocks or starts auth refresh | Local providers use repository/SQLite paths; shell auth-session dependency and misleading logout UI were removed. Remote code remains isolated. | Codex | Mitigated (Phase 10) |
+| R-023 | Unsupported local-security claim | Low | High | UI claims PIN, biometric, encryption, or account protection | Settings UI explicitly describes device-level boundary; no secret fields exist in AppSettings. | Codex | Mitigated (Phase 10) |
+| R-024 | Locale startup fallback or responsive overflow | Low | Medium | Unsupported locale, load failure, RTL overflow | Restrict locale to en/ar, safe English startup fallback, and test ten RTL/LTR viewports plus loading/error states. | Codex | Mitigated (Phase 10) |
+| R-025 | Phase 10 expands into backup or global API removal | Low | Medium | Backup/API production files appear in diff | Phase boundary documented; router, backend, Alembic, backup, and global API source remain unchanged. | Codex | Mitigated (Phase 10) |
+| R-026 | Inconsistent SQLite backup or omitted WAL data | Low | Critical | Snapshot row counts/integrity differ | Use SQLite `VACUUM INTO`; never copy the active file and never archive WAL/SHM. | Codex | Mitigated (Phase 11) |
+| R-027 | Corrupt/tampered archive or checksum mismatch | Low | Critical | ZIP, size, SHA-256, integrity, or FK validation fails | Validate all layers on a staging copy before replacement. | Codex | Mitigated (Phase 11) |
+| R-028 | Archive traversal or oversized extraction | Low | Critical | Nested, absolute, drive, parent path, or size-limit test fails | Exactly two root entries; 256 MiB compressed and 512 MiB extracted limits. | Codex | Mitigated (Phase 11) |
+| R-029 | Future/unsupported schema or staging migration failure | Low | High | Schema outside v1–v4 or post-migration checks fail | Reject future/unknown schemas; migrate only staging and rerun validation. | Codex | Mitigated (Phase 11) |
+| R-030 | Windows file lock or failed active replacement | Medium | Critical | Rename/reopen fails | Close active Drift connection, use sibling incoming/rollback files, and restore rollback on any failure. | Codex | Mitigated (Phase 11) |
+| R-031 | Stale DAO/provider after restore | Low | High | Feature reads closed database | Invalidate `databaseProvider`; watched repository/DAO providers rebuild from the new instance. | Codex | Mitigated (Phase 11) |
+| R-032 | Credential inclusion or misleading encryption claim | Low | Critical | Manifest/archive contains remote secrets or UI claims encryption | Back up only SQLite business/settings tables; explicitly label artifact unencrypted. | Codex | Mitigated (Phase 11) |
+| R-033 | Temporary-file leakage or user cancellation | Low | Medium | Controlled staging directory remains | Cleanup in success/failure/cancel paths and on provider disposal. | Codex | Mitigated (Phase 11) |
+| R-034 | Process termination during the small replacement window | Low | Critical | `.pre_restore` remains after abrupt termination | Rollback file is never deleted before validation; startup crash-recovery automation remains a release-validation hardening item. | Unassigned | Open |
 | R-020 | Accidental continued HTTP calls | Medium | High | App makes network request in airplane mode | HTTP call verification test. Audit all providers for Dio imports (Phase 12). | Unassigned | Open |
 | R-021 | Documentation becomes stale | Medium | Medium | Documentation does not match implementation | Mandatory history updates after each phase. Phase status tracking in README. | Unassigned | Open |
 # Phase 08 risk update — 2026-07-26

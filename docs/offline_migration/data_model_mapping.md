@@ -1,5 +1,13 @@
 # Data Model Mapping
 
+## Phase 12 frontend DTO disposition
+
+Production API DTOs and remote mappings were removed after presentation and
+local persistence were verified to use domain entities and input models. Five
+historical JSON contract DTOs now live under
+`frontend/test/contract/fixtures/`; they are not shipped. Backend schema
+mapping remains as reference for the separately preserved FastAPI system.
+
 > **Status: Verified baseline — Phase 01. Local storage types are proposed, not yet implemented.**
 
 This document maps every entity field across all storage layers: Flutter entity, Flutter DTO, FastAPI/Pydantic schema, SQLAlchemy/PostgreSQL model, and the proposed Drift/SQLite type. All field names, types, and behaviors have been verified against the actual source code.
@@ -214,7 +222,7 @@ These are derived models, not stored tables.
 | Is `budget` the contract value or the planned budget? | Field name is ambiguous. Backend stores `Numeric(14,2)` with `CHECK(>=0)`. No semantic documentation found. With multi-currency, budget must declare its currency. | Decision Required |
 | Should the local database add a CHECK constraint for expense categories? | Verified: Backend has NO DB-level CHECK for expense categories (Pydantic-only enforcement). `Payment.method` and `Milestone.status` DO have DB CHECKs. | Decision Required |
 | Should `overdue` milestone status be computed automatically or set manually? | Backend has the `overdue` enum value but no automatic computation. Status must be manually set. | Decision Required |
-| What is the initial default YER/SAR exchange rate? | Needed for the settings seed value. ADR-005 confirmed the rate is stored as scaled INTEGER (scale 6) but the initial value is not specified. | Decision Required |
+| What is the initial default YER/SAR exchange rate? | Phase 10 selected the established documented/test fixture value 410.000000. It is a user-editable default for new transactions only. | Resolved (Phase 10) |
 | How are mixed-currency expense lines linked? | ADR-005 confirmed mixed-currency expenses are stored as multiple linked lines. Proposed: shared `parent_expense_id` field. Needs confirmation. | Decision Required |
 | Does `budget` on a project need currency designation? | ADR-005 confirmed multi-currency support. Budget currently has no currency. With multi-currency, budget must declare its currency. | Decision Required |
 | What does `outstanding_balances` represent? | Verified: `outstanding_balances = total_payments - total_expenses` (overall net, NOT sum of negative balances). The field name is misleading. With multi-currency, this must be unified YER. | Decision Required |
@@ -316,11 +324,12 @@ Per ADR-005, the local database adds multi-currency support. The following field
 | rate_date | TEXT | NO | NULL | NULL for YER. |
 | parent_expense_id | TEXT | NO | NULL | For mixed-currency expenses: shared parent ID linking multiple lines. |
 
-**Settings (default exchange rate):**
+**Settings (implemented in Phase 10):**
 
 | Field | Proposed Drift/SQLite type | Required | Default | Notes |
 |---|---|---|---|---|
-| default_exchange_rate | INTEGER | YES | Decision Required | Scale 6. Suggested value for new transactions. |
+| default_exchange_rate | INTEGER | YES | `410000000` | Scale 6; 410.000000. Used only for new SAR transactions without a fixed/manual rate. |
+| locale_code | TEXT | YES | `"en"` | Constrained by the repository to `"en"` or `"ar"`. |
 
 ### Derived financial fields
 
@@ -389,3 +398,20 @@ Reports are derived domain results and are not SQLite tables.
 - Archived Client status does not erase historical Project report rows.
 - `netCashFlowYer = totalPaymentsYer - totalExpensesYer`.
 - `double` is used only at the final progress-indicator boundary.
+
+# Phase 11 Backup domain contracts
+
+Backup results are portable artifacts, not database tables.
+
+| Model | Exact fields |
+|---|---|
+| `BackupManifest` | format version, product ID, UTC creation time, database entry name, schema version, exact byte size, SHA-256, optional app version, record counts |
+| `BackupRecordCounts` | Clients, Projects, Milestones, Payments, Expenses, AppSettings row counts, including historical/soft-deleted rows |
+| `BackupPreview` | opaque validation token, display name, validated manifest, staging-migration indicator |
+| `BackupOperationResult` | destination/source display path and validated manifest |
+
+- Format version 1 contains only `manifest.json` and `construction_erp.db`.
+- Restore preview tokens refer to application-controlled staging data and are
+  invalid after cancellation or one restore attempt.
+- No credentials, tokens, passwords, attachment claims, or remote state exist
+  in these contracts.

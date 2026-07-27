@@ -221,7 +221,7 @@ void main() {
 
       final db2 = await _createTempDb(tempDir);
       expect(db2.schemaVersion, kSchemaVersion);
-      expect(db2.schemaVersion, 3);
+      expect(db2.schemaVersion, 4);
       await db2.close();
     });
 

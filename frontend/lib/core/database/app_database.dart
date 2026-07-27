@@ -89,6 +89,10 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(expenses, expenses.isDeleted);
           await m.addColumn(expenses, expenses.deletedAt);
         }
+        // Schema v4: Move the verified locale preference into app_settings.
+        if (from < 4) {
+          await m.addColumn(appSettings, appSettings.localeCode);
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys on every connection.

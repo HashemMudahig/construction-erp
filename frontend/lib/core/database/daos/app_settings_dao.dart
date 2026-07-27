@@ -14,8 +14,13 @@ class AppSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<int> insertSettings(AppSettingsCompanion settings) =>
       into(appSettings).insert(settings);
 
-  Future<AppSettingRow?> getSettings() =>
-      (select(appSettings)..limit(1)).getSingleOrNull();
+  Future<AppSettingRow?> getSettings() => (select(appSettings)
+        ..where((table) => table.id.equals('app'))
+        ..limit(1))
+      .getSingleOrNull();
+
+  Future<void> insertSettingsIfAbsent(AppSettingsCompanion settings) =>
+      into(appSettings).insert(settings, mode: InsertMode.insertOrIgnore);
 
   Future<bool> updateSettings(String id, AppSettingsCompanion companion) =>
       (update(appSettings)..where((t) => t.id.equals(id)))

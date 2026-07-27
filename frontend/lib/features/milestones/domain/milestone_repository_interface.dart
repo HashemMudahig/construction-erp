@@ -2,9 +2,7 @@ import 'milestone_entity.dart';
 
 /// Contract for milestone data access operations.
 ///
-/// Implementations:
-/// - [LocalMilestoneRepository] — active runtime, uses Drift/SQLite.
-/// - [ApiMilestoneRepository] — preserved remote adapter, uses Dio/FastAPI.
+/// Implemented in production by the local Drift/SQLite repository.
 abstract class MilestoneRepositoryInterface {
   /// Lists milestones for the given [projectId], ordered by due date ascending.
   Future<List<MilestoneEntity>> listByProject(String projectId);

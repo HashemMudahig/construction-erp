@@ -1,5 +1,50 @@
 # Project History
 
+## 2026-07-26 — Phase 13 Release Validation Completed
+
+- Added pre-provider SQLite recovery for interrupted Restore remnants.
+- Verified clean/missing/corrupt candidates, rollback/incoming precedence,
+  idempotence, evidence preservation, and controlled failure.
+- Removed INTERNET from the release manifest; built release APK/AAB.
+- Validation: analyzer clean, Phase 13 13, Flutter 435, FastAPI 17.
+- Technically validated; production signing/package identity and device
+  install/update checks remain manual. No branch or commit was created.
+
+## 2026-07-26 — Phase 12 Runtime API/Auth Removal Completed
+
+- Removed Flutter Dio/endpoints, JWT/auth/session/login runtime, and obsolete
+  remote repositories; local repositories are the only business data sources.
+- Isolated historical HTTP DTO contracts under tests and removed unused
+  `dio`/`shared_preferences` packages.
+- Preserved FastAPI production, schema v4, router behavior, and Backup/Restore
+  with no credentials in backups.
+- Validation: analyzer clean; architecture 10; full Flutter 422; Android debug
+  APK built; FastAPI baseline 17.
+- Phase 13 was not started. No branch or commit was created.
+
+## 2026-07-26 — Phase 11 Backup and Restore Completed
+
+- Added consistent SQLite `VACUUM INTO` backups in a versioned `.cerpbackup`
+  container with a strict manifest, record counts, and streaming SHA-256.
+- Restore validates and migrates staging data before replacement, closes and
+  recreates the local database provider, and rolls back on replacement/reopen
+  failure.
+- Backups contain local business data and Settings, no credentials, and are
+  explicitly unencrypted. No cloud transfer or synchronization was added.
+- Validation: analyzer clean; Backup/Restore 42; full Flutter 412; FastAPI 17.
+- Phase 12 is Ready and was not started. No branch or commit was created.
+
+## 2026-07-26 — Phase 10 Settings and Local Security Completed
+
+- Added exact SQLite-backed locale and default SAR→YER settings through a
+  repository/DAO boundary and a non-destructive schema v4 migration.
+- Connected the default rate to new SAR payments/expenses while preserving
+  manual/project-fixed precedence and immutable historical snapshots.
+- Removed active auth-session/login/logout state from the local shell; no
+  unverified PIN, biometric, password, or encryption system was introduced.
+- Validation: analyzer clean; Settings 27; full Flutter 370; FastAPI 17.
+- Phase 11 is Ready and was not started. No branch or commit was created.
+
 ## 2026-07-26 — Phase 09 Reports Local Queries Completed
 
 - Migrated the three verified Reports sections to local Drift-derived queries.

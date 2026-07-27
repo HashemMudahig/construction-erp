@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_constants.dart';
 import '../../../core/database/finance/exchange_rate.dart';
 import '../../../core/database/finance/money_scale.dart';
+import '../../settings/presentation/settings_provider.dart';
 import '../domain/expense_entity.dart';
 import 'expense_providers.dart';
 
@@ -198,7 +199,17 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
                       ],
                       onChanged: (v) => setState(() {
                         _currency = v ?? kCurrencyYer;
-                        if (_currency == kCurrencyYer) _rate.clear();
+                        if (_currency == kCurrencyYer) {
+                          _rate.clear();
+                        } else if (_rate.text.isEmpty) {
+                          final settings =
+                              ref.read(settingsProvider).valueOrNull;
+                          if (settings != null) {
+                            _rate.text = formatScaledExchangeRate(
+                              settings.defaultSarToYerRateScaled,
+                            );
+                          }
+                        }
                       }),
                     ),
                   ),

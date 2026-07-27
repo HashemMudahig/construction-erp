@@ -8,7 +8,7 @@ import '../domain/reports_repository_interface.dart';
 export '../domain/report_filters.dart';
 export '../domain/report_models.dart';
 
-/// Active runtime Reports repository. This path never reads Dio or JWT.
+/// Reports repository backed only by local SQLite data.
 final reportsRepositoryProvider = Provider<ReportsRepositoryInterface>(
   (ref) => ref.watch(localReportsRepositoryProvider),
 );

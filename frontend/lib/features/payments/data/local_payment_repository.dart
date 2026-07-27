@@ -7,6 +7,8 @@ import '../../../core/database/daos/payments_dao.dart';
 import '../../../core/database/daos/projects_dao.dart';
 import '../../../core/database/finance/currency_conversion.dart';
 import '../../../core/uuid/uuid_util.dart';
+import '../../settings/data/local_settings_repository.dart';
+import '../../settings/domain/settings_repository_interface.dart';
 import '../domain/payment_entity.dart';
 import '../domain/payment_repository_interface.dart';
 import 'payment_mapper.dart';
@@ -16,11 +18,17 @@ import 'payment_mapper.dart';
 /// Supports multi-currency payments with immutable exchange-rate snapshots,
 /// soft deletion, and payment groups for mixed-currency business payments.
 class LocalPaymentRepository implements PaymentRepositoryInterface {
-  LocalPaymentRepository(this._dao, this._projectsDao, this._db);
+  LocalPaymentRepository(
+    this._dao,
+    this._projectsDao,
+    this._db, [
+    this._settings,
+  ]);
 
   final PaymentsDao _dao;
   final ProjectsDao _projectsDao;
   final AppDatabase _db;
+  final SettingsRepositoryInterface? _settings;
 
   @override
   Future<List<PaymentEntity>> listByProject(String projectId) async {
@@ -83,6 +91,10 @@ class LocalPaymentRepository implements PaymentRepositoryInterface {
             project.fixedExchangeRateScaled! > 0) {
           finalRate = project.fixedExchangeRateScaled!;
           finalRateSource = kRateSourceProject;
+        } else if (_settings != null) {
+          finalRate =
+              (await _settings.loadSettings()).defaultSarToYerRateScaled;
+          finalRateSource = kRateSourceDefault;
         } else {
           throw ArgumentError(
             'SAR payment requires a positive exchange rate',
@@ -281,5 +293,10 @@ class LocalPaymentRepository implements PaymentRepositoryInterface {
 final localPaymentRepositoryProvider =
     Provider<PaymentRepositoryInterface>((ref) {
   final db = ref.watch(databaseProvider);
-  return LocalPaymentRepository(db.paymentsDao, db.projectsDao, db);
+  return LocalPaymentRepository(
+    db.paymentsDao,
+    db.projectsDao,
+    db,
+    ref.watch(localSettingsRepositoryProvider),
+  );
 });

@@ -8,9 +8,7 @@ import '../../reports/presentation/report_providers.dart';
 
 /// Active runtime client repository provider.
 ///
-/// Uses [LocalClientRepository] (Drift/SQLite). The remote
-/// [ApiClientRepository] remains preserved as `apiClientRepositoryProvider`
-/// for future use.
+/// Uses the sole production implementation: [LocalClientRepository].
 final clientRepositoryProvider = Provider<ClientRepositoryInterface>((ref) {
   return ref.watch(localClientRepositoryProvider);
 });

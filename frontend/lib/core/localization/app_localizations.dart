@@ -1,39 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-// Locale Provider that persists the selected language
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
-  return LocaleNotifier();
-});
-
-class LocaleNotifier extends StateNotifier<Locale> {
-  LocaleNotifier() : super(const Locale('en')) {
-    _loadLocale();
-  }
-
-  static const _key = 'app_locale';
-
-  Future<void> _loadLocale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lang = prefs.getString(_key) ?? 'en';
-    state = Locale(lang);
-  }
-
-  Future<void> setLocale(String langCode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, langCode);
-    state = Locale(langCode);
-  }
-
-  void toggleLocale() {
-    if (state.languageCode == 'en') {
-      setLocale('ar');
-    } else {
-      setLocale('en');
-    }
-  }
-}
+export '../../features/settings/presentation/settings_provider.dart'
+    show LocaleNotifier, localeProvider;
 
 // Helper extension on BuildContext to quickly access translations
 extension LocalizationContext on BuildContext {
@@ -63,23 +31,11 @@ class AppLocalizations {
       'clients': 'Clients',
       'projects': 'Projects',
       'reports': 'Reports',
-      'logout': 'Sign Out',
       'settings': 'Settings',
       'language': 'Language',
       'arabic': 'العربية',
       'english': 'English',
       'toggle_language': 'عربي',
-
-      // Auth / Login
-      'login_title': 'Welcome Back',
-      'login_subtitle': 'Sign in to manage your construction projects',
-      'email': 'Email Address',
-      'password': 'Password',
-      'login_button': 'Sign In',
-      'logging_in': 'Signing In...',
-      'invalid_credentials': 'Invalid email or password',
-      'email_required': 'Email is required',
-      'password_required': 'Password is required',
 
       // Dashboard
       'welcome_engineer': 'Eng. Ahmed Al-Omari',
@@ -198,23 +154,11 @@ class AppLocalizations {
       'clients': 'العملاء',
       'projects': 'المشاريع',
       'reports': 'التقارير',
-      'logout': 'تسجيل الخروج',
       'settings': 'الإعدادات',
       'language': 'اللغة',
       'arabic': 'العربية',
       'english': 'English',
       'toggle_language': 'English',
-
-      // Auth / Login
-      'login_title': 'مرحباً بك مجدداً',
-      'login_subtitle': 'سجل الدخول لإدارة مشاريع المقاولات الخاصة بك',
-      'email': 'البريد الإلكتروني',
-      'password': 'كلمة المرور',
-      'login_button': 'تسجيل الدخول',
-      'logging_in': 'جاري الدخول...',
-      'invalid_credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-      'email_required': 'البريد الإلكتروني مطلوب',
-      'password_required': 'كلمة المرور مطلوبة',
 
       // Dashboard
       'welcome_engineer': 'م. أحمد العمري',

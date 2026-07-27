@@ -14,7 +14,7 @@ import 'client_mapper.dart';
 /// This is the active runtime implementation for the Clients feature.
 /// It uses [ClientsDao] to access the persistent SQLite database.
 ///
-/// The remote [ApiClientRepository] remains preserved for future use.
+/// This is the sole production Client data source.
 class LocalClientRepository implements ClientRepositoryInterface {
   LocalClientRepository(this._dao);
 

@@ -24,9 +24,7 @@ class ProjectFinancialSummary {
 
 /// Contract for project data access operations.
 ///
-/// Implementations:
-/// - [LocalProjectRepository] — active runtime, uses Drift/SQLite.
-/// - [ApiProjectRepository] — preserved remote adapter, uses Dio/FastAPI.
+/// Implemented in production by the local Drift/SQLite repository.
 abstract class ProjectRepositoryInterface {
   /// Lists projects. Optional filters by [clientId] and [status].
   /// When [search] is non-empty, filters by project name (case-insensitive).
@@ -78,6 +76,6 @@ abstract class ProjectRepositoryInterface {
   /// Returns the local financial summary for the project.
   ///
   /// Computes totals from local Payment and Expense tables.
-  /// Does not call Dio or FastAPI.
+  /// Uses exact local Payment and Expense snapshots.
   Future<ProjectFinancialSummary> getFinancialSummary(String id);
 }

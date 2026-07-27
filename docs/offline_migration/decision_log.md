@@ -1,5 +1,26 @@
 # Decision Log
 
+## ADR-014 — Conservative startup recovery and Android release boundary
+
+- **Date:** 2026-07-26
+- **Status:** Accepted
+- **Decision:** Run candidate validation before Riverpod database exposure.
+  Prefer canonical, then rollback, then incoming; preserve invalid evidence.
+  Release manifest has no network or broad-storage permission.
+- **Release decision:** Technically validated; production application ID,
+  signing credentials, and physical install/update validation remain manual.
+
+## ADR-013 — Remove frontend remote and authentication runtime
+
+- **Date:** 2026-07-26
+- **Status:** Accepted
+- **Decision:** Remove Dio/endpoints, remote frontend repositories, and
+  authentication/session code after completing all local feature migrations.
+- **Consequences:** Flutter no longer consumes FastAPI or requires JWT. Local
+  repositories are the only active business sources. FastAPI remains separately
+  preserved. No fake local authentication was added. Git history archives
+  deleted adapters; historical DTO contracts are test-only fixtures.
+
 > **Architecture Decision Records (ADR) for the offline migration.**
 
 ## Status Values
@@ -22,7 +43,9 @@
 | ADR-007 | Dashboard and Reports remain derived queries | Accepted | 2026-07-22 | Dashboard and report data is computed from clients, projects, payments, and expenses. The backend already computes these as derived queries in `dashboard_repository.py` and `report_repository.py`. Storing pre-computed values would introduce staleness. | 1. Store pre-computed dashboard/report tables. 2. Compute on demand from base tables. | Option 2: Compute on demand. | Always fresh data. No sync needed for derived data. Slightly more query overhead. |
 | ADR-008 | Foreign-key enforcement is mandatory | Accepted | 2026-07-22 | SQLite does not enforce foreign keys by default. The backend uses FK constraints with RESTRICT (clients→projects) and CASCADE (projects→milestones/payments/expenses). Data integrity requires equivalent enforcement locally. | 1. No foreign keys (manual checks). 2. Foreign keys with PRAGMA enforcement. | Option 2: Foreign keys with PRAGMA foreign_keys = ON. | Data integrity guaranteed. Orphan records prevented. Cascade deletes work correctly. |
 | ADR-009 | Backup and restore is required before client delivery | Accepted | 2026-07-22 | Local-only storage means data is lost if the app is uninstalled or the device is lost. The risk register identifies this as High probability, Critical impact (R-001, R-002, R-003). | 1. No backup (user responsibility). 2. Backup and restore feature. | Option 2: Backup and restore feature. | Data can be exported and imported. Reduces data loss risk. Additional development effort. |
-| ADR-010 | No server authentication is required in local runtime | Accepted | 2026-07-22 | The local app does not need server authentication. The backend uses JWT bearer tokens via `app/core/security.py`. The Flutter app has `AuthSessionNotifier` and `LoginScreen`. The router already has auth redirect removed (pre-existing change). JWT tokens and login screens add unnecessary complexity for local mode. | 1. Keep JWT auth (unused but present). 2. Remove auth entirely. 3. Remove server auth, add optional local PIN. | Option 3: Remove server auth, add optional local PIN. | No JWT token management. Optional PIN for device security. Auth code preserved for future remote mode. |
+| ADR-010 | No server authentication is required in local runtime | Accepted, clarified | 2026-07-26 | The local app does not need server authentication. No verified PIN, biometric, encryption, or password contract exists. | 1. Keep active JWT auth. 2. Use device security only and preserve remote auth source. 3. Invent an in-app security system. | Option 2: local shell has no auth-session dependency; device security is the current boundary. | No login/logout claim in the local shell. Remote auth code is preserved but inactive. Additional local security requires a separately verified contract. |
+| ADR-011 | Persist verified application settings in SQLite | Accepted | 2026-07-26 | Locale was stored separately and new SAR transactions needed an exact, persistent default exchange rate. | 1. Scattered preferences. 2. Canonical settings row through repository/DAO/SQLite. | Option 2: singleton `app_settings` row with scale-6 rate and locale. | Deterministic offline persistence, non-destructive migration, exact financial input, and no network/auth dependency. |
+| ADR-012 | Portable full-database backup and replacement restore | Accepted | 2026-07-26 | Local-only data needs a consistent portable recovery artifact without cloud or credential leakage. | 1. Row export/merge. 2. Blind file copy. 3. Consistent SQLite snapshot with strict staged replacement restore. | Option 3: `VACUUM INTO`, versioned ZIP-compatible manifest, streaming SHA-256, staging validation/migration, and rollback. | Restore replaces rather than merges. Rollback is retained through post-reopen checks. Backup is unencrypted, contains no credentials, and does not include nonexistent attachments or use cloud transfer. |
 
 ---
 
@@ -85,10 +108,10 @@ The following questions were previously "Decision Required" and are now resolved
 
 | Question | Context | Status |
 |---|---|---|
-| What is the initial default YER/SAR exchange rate? | Needed for the settings seed value. | Decision Required |
+| What is the initial default YER/SAR exchange rate? | 410.000000, represented as scale-6 INTEGER `410000000`; user-editable and future-transactions-only. | Resolved in Phase 10 |
 | How are mixed-currency expense lines linked? | Need a parent expense ID or grouping mechanism. | Decision Required — proposed: shared `parent_expense_id` field. |
 | Does `budget` on a project need currency designation? | Currently `Numeric(14,2)` with no currency. With multi-currency, budget must declare its currency. | Decision Required |
-| Should the local settings table store the default exchange rate? | Yes, but the exact schema needs confirmation. | Decision Required |
+| Should the local settings table store the default exchange rate? | Yes: canonical `app_settings` row, scale-6 INTEGER, repository validation. | Resolved in Phase 10 |
 
 ---
 

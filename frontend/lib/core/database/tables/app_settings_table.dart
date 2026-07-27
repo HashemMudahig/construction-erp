@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import '../database_constants.dart';
+
 /// Application settings table — minimal single-row configuration.
 ///
 /// Stores the default SAR-to-YER exchange rate used as a suggested value
@@ -15,6 +17,10 @@ class AppSettings extends Table {
   /// Default SAR-to-YER exchange rate (scale-6 INTEGER).
   /// Used only as a suggested value for new transactions.
   IntColumn get defaultExchangeRateScaled => integer().nullable()();
+
+  /// Canonical application locale. Only "en" and "ar" are supported.
+  TextColumn get localeCode =>
+      text().withDefault(const Constant(kDefaultLocaleCode))();
 
   /// Creation timestamp, ISO 8601 UTC string.
   TextColumn get createdAt => text()();

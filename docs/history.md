@@ -1,5 +1,47 @@
 # Project History
 
+## 2026-07-26 — Phase 13 Release Validation
+
+- Added safe startup recovery before database/provider exposure.
+- Release manifest has no network or broad storage permission.
+- Release APK/AAB and 435 Flutter tests passed; FastAPI baseline 17 passed.
+- Final status: technically validated with signing and device steps remaining.
+
+## 2026-07-26 — Phase 12 Runtime API/Auth Removal
+
+- Finalized UI → Riverpod → local repositories → Drift → SQLite, with no Dio,
+  FastAPI, JWT, auth/session, or remote adapter runtime.
+- Kept backend production, Backup/Restore, schema v4, and router unchanged.
+- Validation: 422 Flutter tests, clean analyzer, Android debug APK, and 17
+  FastAPI baseline tests.
+- Phase 13 remains Ready and was not started.
+
+## 2026-07-26 — Phase 11 Backup and Restore
+
+- Implemented portable full-database backup using a consistent SQLite snapshot,
+  strict format-v1 manifest, SHA-256, archive path/size safeguards, and system
+  file selection.
+- Restore is a validated replacement, not a merge: staging migrations and
+  integrity/FK/count checks complete before active data is touched.
+- Active database replacement retains rollback until the recreated provider
+  and restored database pass final validation.
+- Backup is offline and unencrypted, contains no credentials, and does not
+  claim unsupported attachment coverage. Phase 12 was not started.
+- Validation: analyzer clean; Backup/Restore 42; full Flutter 412; FastAPI 17.
+
+## 2026-07-26 — Phase 10 Settings and Local Security
+
+- Completed the verified local settings contract: default SAR→YER rate and
+  `en`/`ar` locale in the canonical SQLite settings row.
+- Added safe defaults, validation, persistence/reopen and v3→v4 migration
+  coverage, plus responsive local settings UI.
+- New SAR transactions use project-fixed, manual, then local-default rate
+  precedence; prior records remain unchanged.
+- The local shell has no active JWT/auth-session dependency. Remote auth source
+  remains preserved for a future adapter.
+- Validation: analyzer clean; Settings 27; full Flutter 370; FastAPI 17.
+- Phase 11 is Ready and was not started.
+
 ## 2026-07-26 — Phase 09 Reports Local Queries
 
 - Completed local Project Status, Financial Summary, and Expense Analysis reports.

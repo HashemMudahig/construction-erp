@@ -2,9 +2,7 @@ import 'client_entity.dart';
 
 /// Contract for client data access operations.
 ///
-/// Implementations:
-/// - [LocalClientRepository] — active runtime, uses Drift/SQLite.
-/// - [ApiClientRepository] — preserved remote adapter, uses Dio/FastAPI.
+/// Implemented in production by the local Drift/SQLite repository.
 ///
 /// The interface returns domain entities, not Drift rows or DTOs.
 /// Screens and providers depend on this abstraction, not on a specific

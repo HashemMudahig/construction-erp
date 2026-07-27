@@ -1,14 +1,14 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:construction_erp/features/clients/data/client_dto.dart';
 import 'package:construction_erp/features/clients/domain/client_entity.dart';
-import 'package:construction_erp/features/projects/data/project_dto.dart';
-import 'package:construction_erp/features/milestones/data/milestone_dto.dart';
-import 'package:construction_erp/features/payments/data/payment_dto.dart';
-import 'package:construction_erp/features/expenses/data/expense_dto.dart';
 import 'package:construction_erp/features/dashboard/domain/dashboard_models.dart';
 import 'package:construction_erp/features/reports/presentation/report_providers.dart';
+import 'fixtures/client_dto.dart';
+import 'fixtures/expense_dto.dart';
+import 'fixtures/milestone_dto.dart';
+import 'fixtures/payment_dto.dart';
+import 'fixtures/project_dto.dart';
 
 /// Baseline fixtures with deterministic UUIDs, dates, and monetary values.
 /// No DateTime.now() is used in any expected value.

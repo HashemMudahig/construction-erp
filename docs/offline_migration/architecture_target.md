@@ -1,5 +1,43 @@
 # Target Architecture
 
+## Phase 13 validated startup boundary
+
+Before Riverpod exposes `AppDatabase`, startup validates the canonical SQLite
+file and interrupted Restore candidates. Valid canonical data wins; rollback
+precedes incoming; corrupt canonical evidence is quarantined; invalid evidence
+is preserved. Only after this boundary does the final local architecture open.
+
+## Phase 12 final frontend architecture
+
+```text
+Flutter UI → Riverpod → domain repository interfaces
+→ local repository implementations → Drift DAOs → SQLite
+```
+
+This is the only production frontend business-data path. Phase 12 removed Dio,
+endpoint configuration, JWT/session/login code, and remote repositories. The
+existing router still starts at Dashboard and was unchanged. FastAPI is a
+separate preserved backend, not a Flutter dependency. Older “preserved remote
+adapter” statements below describe pre-Phase-12 history and are superseded.
+
+## Phase 11 local Backup/Restore lifecycle
+
+Backup/Restore now resolves through typed domain models,
+`BackupRepositoryInterface`, `LocalBackupRepository`, and isolated snapshot,
+archive, and checksum services. SQLite `VACUUM INTO` creates the consistent
+snapshot. Restore validates and migrates a staging copy before closing and
+replacing the active database; `databaseProvider` and its watched dependents
+are recreated only after the replacement boundary. A `.pre_restore` file is
+retained until post-reopen validation succeeds.
+
+## Phase 10 active Settings adapter
+
+Settings resolve through `SettingsRepositoryInterface`,
+`LocalSettingsRepository`, `AppSettingsDao`, and Drift/SQLite. The canonical
+singleton stores only the verified default SAR→YER rate and locale. The local
+shell no longer consumes auth-session/JWT state; preserved remote auth and Dio
+source remain outside the active local path.
+
 ## Phase 08 active Dashboard adapter
 
 Dashboard now resolves through `DashboardRepositoryInterface`,
@@ -19,7 +57,7 @@ Drift rows, DAOs, or HTTP responses. Project Status, Financial Summary, and
 Expense Analysis remain on-demand derived queries; no report-result table
 exists.
 
-> **Status: Partially implemented — Phases 01 through 09 completed.**
+> **Status: Partially implemented — Phases 01 through 11 completed.**
 
 This document describes the target architecture for the offline migration. It does not replace [../architecture.md](../architecture.md), which describes the current architecture. The two documents are linked.
 

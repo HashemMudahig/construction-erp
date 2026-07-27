@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:construction_erp/core/database/app_database.dart';
 import 'package:construction_erp/core/database/daos/reports_dao.dart';
 import 'package:construction_erp/core/database/database_provider.dart';
-import 'package:construction_erp/features/reports/data/api_reports_repository.dart';
 import 'package:construction_erp/features/reports/data/local_reports_repository.dart';
 import 'package:construction_erp/features/reports/presentation/report_providers.dart';
 
@@ -112,8 +111,6 @@ void main() {
       container.read(reportsRepositoryProvider),
       isA<LocalReportsRepository>(),
     );
-    expect(container.read(apiReportsRepositoryProvider),
-        isA<ApiReportsRepository>());
     container.dispose();
     await db.close();
   });
