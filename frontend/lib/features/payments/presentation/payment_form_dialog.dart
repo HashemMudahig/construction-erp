@@ -1,10 +1,14 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/localized_business_labels.dart';
 
 import '../../../core/database/database_constants.dart';
+import '../../../core/database/finance/currency_conversion.dart';
 import '../../../core/database/finance/exchange_rate.dart';
 import '../../../core/database/finance/money_scale.dart';
+import '../../projects/presentation/project_providers.dart';
 import '../../settings/presentation/settings_provider.dart';
 import '../domain/payment_entity.dart';
 import 'payment_providers.dart';
@@ -26,15 +30,19 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
   DateTime? _paymentDate;
   String _method = 'cash';
   String _currency = kCurrencyYer;
+  String _contractCurrency = kCurrencyYer;
   bool _saving = false;
 
   bool get _isEdit => widget.payment != null;
   static const _methods = ['cash', 'bank_transfer', 'cheque', 'other'];
-  bool get _isSar => _currency == kCurrencySar;
+  /// A rate is required only when the payment currency differs from the
+  /// contract (budget) currency.
+  bool get _needsRate => _currency != _contractCurrency;
 
   @override
   void initState() {
     super.initState();
+    _loadContractCurrency();
     if (widget.payment != null) {
       final p = widget.payment!;
       _currency = p.originalCurrency;
@@ -43,9 +51,29 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
       _notes.text = p.notes ?? '';
       _paymentDate = p.paymentDate;
       _method = p.method;
-      if (_isSar) {
+      if (_needsRate) {
         _rate.text = formatScaledExchangeRate(p.exchangeRateScaled);
       }
+    }
+  }
+
+  Future<void> _loadContractCurrency() async {
+    try {
+      final project =
+          await ref.read(projectRepositoryProvider).getById(widget.projectId);
+      if (mounted && project != null) {
+        setState(() => _contractCurrency = project.budgetCurrency);
+        // Re-evaluate rate prefill after the contract currency is known.
+        if (_needsRate && _rate.text.isEmpty) {
+          final settings = ref.read(settingsProvider).valueOrNull;
+          if (settings != null) {
+            _rate.text =
+                formatScaledExchangeRate(settings.defaultSarToYerRateScaled);
+          }
+        }
+      }
+    } catch (_) {
+      // Keep the default YER contract currency; the repository will validate.
     }
   }
 
@@ -59,6 +87,12 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate() || _paymentDate == null) return;
+    // Cross-currency confirmation: when the payment currency differs from the
+    // contract currency, show a clear financial warning before recording.
+    if (_needsRate && !_isEdit) {
+      final confirmed = await _showCrossCurrencyConfirmation();
+      if (confirmed != true) return;
+    }
     setState(() => _saving = true);
     final actions = ref.read(paymentActionsProvider);
     String fmt(DateTime d) =>
@@ -80,13 +114,13 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
 
     int? rateScaled;
     String rateSource = kRateSourceIdentity;
-    if (_isSar) {
+    if (_needsRate) {
       final rateStr = _rate.text.trim();
       if (rateStr.isEmpty) {
         setState(() => _saving = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Exchange rate required for SAR')));
+              SnackBar(content: Text(context.tr('err_exchange_rate_gt_zero'))));
         }
         return;
       }
@@ -112,7 +146,7 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
         originalCurrency: _currency,
         exchangeRateScaled: rateScaled,
         rateSource: rateSource,
-        rateDate: _isSar ? fmt(_paymentDate!) : null,
+        rateDate: _needsRate ? fmt(_paymentDate!) : null,
         paymentDate: fmt(_paymentDate!),
         method: _method,
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
@@ -124,7 +158,7 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
         originalCurrency: _currency,
         exchangeRateScaled: rateScaled,
         rateSource: rateSource,
-        rateDate: _isSar ? fmt(_paymentDate!) : null,
+        rateDate: _needsRate ? fmt(_paymentDate!) : null,
         paymentDate: fmt(_paymentDate!),
         method: _method,
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
@@ -138,10 +172,123 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
     }
   }
 
+  /// Live converted-value preview, shown only when a cross-currency rate is
+  /// required and both the amount and rate are valid. Uses exact integer
+  /// arithmetic via [convertToCurrency].
+  Widget _buildConvertedPreview() {
+    final amountStr = _amount.text.trim();
+    final rateStr = _rate.text.trim();
+    final amountDec = Decimal.tryParse(amountStr);
+    final rateDec = Decimal.tryParse(rateStr);
+    if (amountDec == null || amountDec <= Decimal.zero) {
+      return const SizedBox.shrink();
+    }
+    if (rateDec == null || rateDec <= Decimal.zero) {
+      return const SizedBox.shrink();
+    }
+    int amountMinor;
+    int rateScaled;
+    try {
+      amountMinor = toMinorUnits(amountDec, _currency);
+      rateScaled = toScaledExchangeRate(rateDec);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+    final convertedMinor = convertToCurrency(
+        amountMinor, _currency, _contractCurrency, rateScaled);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '${context.tr('equivalent')}: ${formatCurrencyDisplay(convertedMinor, _contractCurrency)}',
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.primary),
+      ),
+    );
+  }
+
+  /// Builds the cross-currency confirmation dialog showing the original
+  /// currency, amount, exchange rate, and the converted value before the
+  /// user confirms recording the payment.
+  Future<bool?> _showCrossCurrencyConfirmation() {
+    final amountStr = _amount.text.trim();
+    final rateStr = _rate.text.trim();
+    final amountDec = Decimal.tryParse(amountStr);
+    final rateDec = Decimal.tryParse(rateStr);
+    if (amountDec == null || rateDec == null) return Future.value(false);
+    int amountMinor;
+    int rateScaled;
+    try {
+      amountMinor = toMinorUnits(amountDec, _currency);
+      rateScaled = toScaledExchangeRate(rateDec);
+    } catch (_) {
+      return Future.value(false);
+    }
+    final convertedMinor = convertToCurrency(
+        amountMinor, _currency, _contractCurrency, rateScaled);
+    final rateDisplay =
+        '1 ${_currency} = ${formatScaledExchangeRate(rateScaled)} $_contractCurrency';
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: Theme.of(ctx).colorScheme.error),
+            const SizedBox(width: 8),
+            Text(context.tr('financial_alert')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.tr('cross_currency_payment_warning')),
+              const SizedBox(height: 16),
+              _ConfirmationRow(
+                label: context.tr('original_currency'),
+                value: _currency,
+              ),
+              _ConfirmationRow(
+                label: context.tr('amount_label'),
+                value: formatCurrencyDisplay(amountMinor, _currency),
+              ),
+              _ConfirmationRow(
+                label: context.tr('exchange_rate_label'),
+                value: rateDisplay,
+              ),
+              _ConfirmationRow(
+                label: context.tr('value_after_conversion'),
+                value: formatCurrencyDisplay(convertedMinor, _contractCurrency),
+                bold: true,
+              ),
+              const SizedBox(height: 16),
+              Text(context.tr('record_payment_question'),
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(context.tr('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.tr('proceed')),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit payment' : 'New payment'),
+      title: Text(
+          context.tr(_isEdit ? 'edit_payment_title' : 'new_payment_title')),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -155,37 +302,57 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
                     child: TextFormField(
                       controller: _amount,
                       decoration: InputDecoration(
-                        labelText: 'Amount *',
-                        prefixText: _isSar ? 'SAR ' : 'YER ',
+                        labelText: context.tr('payment_amount_required'),
+                        prefixText: '$_currency ',
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
                       validator: (v) {
                         final s = v?.trim() ?? '';
-                        if (s.isEmpty) return 'Amount is required';
+                        if (s.isEmpty) {
+                          return context.tr('err_payment_amount_required');
+                        }
                         final d = Decimal.tryParse(s);
                         if (d == null || d <= Decimal.zero) {
-                          return 'Amount must be > 0';
+                          return context.tr('err_payment_amount_positive');
                         }
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Currency'),
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: context.tr('currency_label'),
+                      ),
                       initialValue: _currency,
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: kCurrencyYer, child: Text('YER')),
+                            value: kCurrencyYer,
+                            child: Text(context.tr('yer'))),
                         DropdownMenuItem(
-                            value: kCurrencySar, child: Text('SAR')),
+                            value: kCurrencySar,
+                            child: Text(context.tr('sar'))),
+                      ],
+                      selectedItemBuilder: (context) => const [
+                        Text(
+                          kCurrencyYer,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          kCurrencySar,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                       onChanged: (v) => setState(() {
                         _currency = v ?? kCurrencyYer;
-                        if (_currency == kCurrencyYer) {
+                        if (!_needsRate) {
                           _rate.clear();
                         } else if (_rate.text.isEmpty) {
                           final settings =
@@ -201,29 +368,34 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
                   ),
                 ],
               ),
-              if (_isSar) ...[
-                const SizedBox(height: 12),
+              if (_needsRate) ...[
+                SizedBox(height: 12),
                 TextFormField(
                   controller: _rate,
-                  decoration: const InputDecoration(
-                    labelText: 'Exchange Rate (YER per SAR)',
+                  decoration: InputDecoration(
+                    labelText: context.tr('exchange_rate_yer_sar'),
                     hintText: 'e.g. 410.000000',
                   ),
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
                   validator: (v) {
-                    if (!_isSar) return null;
+                    if (!_needsRate) return null;
                     final s = v?.trim() ?? '';
-                    if (s.isEmpty) return 'Rate is required for SAR';
+                    if (s.isEmpty) {
+                      return context.tr('err_rate_required_sar');
+                    }
                     final d = Decimal.tryParse(s);
                     if (d == null || d <= Decimal.zero) {
-                      return 'Enter a positive rate';
+                      return context.tr('err_exchange_rate_gt_zero');
                     }
                     return null;
                   },
                 ),
+                SizedBox(height: 8),
+                _buildConvertedPreview(),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -235,26 +407,28 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
                   if (picked != null) setState(() => _paymentDate = picked);
                 },
                 child: InputDecorator(
-                  decoration:
-                      const InputDecoration(labelText: 'Payment date *'),
+                  decoration: InputDecoration(
+                      labelText: context.tr('payment_date_required')),
                   child: Text(_paymentDate == null
-                      ? 'Select date'
+                      ? context.tr('select_date')
                       : '${_paymentDate!.year}-${_paymentDate!.month.toString().padLeft(2, '0')}-${_paymentDate!.day.toString().padLeft(2, '0')}'),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _method,
-                decoration: const InputDecoration(labelText: 'Method'),
+                decoration: InputDecoration(labelText: context.tr('method')),
                 items: _methods
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                    .map((m) => DropdownMenuItem(
+                        value: m,
+                        child: Text(localizedPaymentMethod(context, m))))
                     .toList(),
                 onChanged: (v) => setState(() => _method = v ?? 'cash'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextFormField(
                 controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes'),
+                decoration: InputDecoration(labelText: context.tr('notes')),
                 maxLines: 2,
               ),
             ],
@@ -264,17 +438,60 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
+            child: Text(context.tr('cancel'))),
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
-              ? const SizedBox(
+              ? SizedBox(
                   height: 20,
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(_isEdit ? 'Update' : 'Create'),
+              : Text(_isEdit
+                  ? context.tr('save_payment')
+                  : context.tr('save_payment')),
         ),
       ],
+    );
+  }
+}
+
+/// A labeled value row used inside confirmation dialogs.
+class _ConfirmationRow extends StatelessWidget {
+  const _ConfirmationRow({
+    required this.label,
+    required this.value,
+    this.bold = false,
+  });
+  final String label;
+  final String value;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: bold ? FontWeight.bold : FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

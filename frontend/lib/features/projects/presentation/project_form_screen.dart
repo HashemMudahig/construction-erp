@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../clients/presentation/client_providers.dart';
+import '../../clients/presentation/add_client_dialog.dart';
 import '../../clients/domain/client_entity.dart';
 import '../../../core/database/database_constants.dart';
 import '../../../core/database/finance/exchange_rate.dart';
 import '../../../core/database/finance/money_scale.dart';
 import 'project_providers.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class ProjectFormScreen extends ConsumerStatefulWidget {
   const ProjectFormScreen({this.id, this.clientId, super.key});
@@ -20,6 +22,9 @@ class ProjectFormScreen extends ConsumerStatefulWidget {
 }
 
 class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
+  /// Sentinel dropdown value representing the "add new client" action.
+  static const _kAddNewClientValue = '__add_new_client__';
+
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _description = TextEditingController();
@@ -33,6 +38,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   DateTime? _endDate;
   bool _saving = false;
   bool _loading = false;
+  bool _contractLocked = false;
   String? _error;
   List<ClientEntity> _clients = [];
 
@@ -65,13 +71,31 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     } catch (_) {}
   }
 
+  Future<void> _onClientChanged(String? value) async {
+    if (value == _kAddNewClientValue) {
+      // Reset dropdown selection before opening the dialog so the form
+      // does not visually stick to the "+ add new client" entry.
+      setState(() => _clientId = null);
+      final created = await AddClientDialog.show(context);
+      if (created == null) return;
+      // Refresh the local cache (the dialog already invalidated the
+      // clientsListProvider, but we keep our own copy in sync too).
+      await _loadClients();
+      if (!mounted) return;
+      setState(() => _clientId = created.id);
+      return;
+    }
+    setState(() => _clientId = value);
+  }
+
   Future<void> _loadExisting() async {
     setState(() => _loading = true);
     try {
       final repo = ref.read(projectRepositoryProvider);
       final p = await repo.getById(widget.id!);
       if (p == null) {
-        if (mounted) setState(() => _error = 'Project not found');
+        if (mounted)
+          setState(() => _error = context.tr('err_project_not_found'));
         return;
       }
       _name.text = p.name;
@@ -86,6 +110,8 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       _status = p.status;
       _startDate = p.startDate;
       _endDate = p.endDate;
+      // Lock the contract value once any financial transaction exists.
+      _contractLocked = await repo.hasChildRecords(widget.id!);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -124,13 +150,13 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_clientId == null) {
-      setState(() => _error = 'Please select a client');
+      setState(() => _error = context.tr('err_select_project_owner'));
       return;
     }
     if (_startDate != null &&
         _endDate != null &&
         _endDate!.isBefore(_startDate!)) {
-      setState(() => _error = 'End date must be on or after start date');
+      setState(() => _error = context.tr('err_end_date_before_start'));
       return;
     }
 
@@ -150,8 +176,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     if (_isSarFixed) {
       final rateStr = _fixedRate.trim();
       if (rateStr.isEmpty) {
-        setState(() =>
-            _error = 'Fixed exchange rate is required for SAR fixed policy');
+        setState(() => _error = context.tr('err_fixed_rate_required'));
         return;
       }
       try {
@@ -180,10 +205,11 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         name: _name.text.trim(),
         description:
             _description.text.trim().isEmpty ? null : _description.text.trim(),
-        budgetAmountMinor: budgetMinor,
-        budgetCurrency: _budgetCurrency,
-        exchangePolicy: _exchangePolicy,
-        fixedExchangeRateScaled: fixedRateScaled,
+        budgetAmountMinor: _contractLocked ? null : budgetMinor,
+        budgetCurrency: _contractLocked ? null : _budgetCurrency,
+        exchangePolicy: _contractLocked ? null : _exchangePolicy,
+        fixedExchangeRateScaled:
+            _contractLocked ? null : fixedRateScaled,
         startDate: fmt(_startDate),
         endDate: fmt(_endDate),
         status: _status,
@@ -216,15 +242,15 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete project'),
-        content: const Text('Are you sure you want to delete this project?'),
+        title: Text(context.tr('delete_project_title')),
+        content: Text(context.tr('delete_project_content')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel')),
+              child: Text(context.tr('cancel'))),
           FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Delete')),
+              child: Text(context.tr('delete'))),
         ],
       ),
     );
@@ -246,116 +272,172 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit project' : 'New project'),
+        title: Text(
+            _isEdit ? context.tr('edit_project') : context.tr('new_project')),
         actions: _isEdit
             ? [
                 IconButton(
-                    icon: const Icon(Icons.delete),
-                    tooltip: 'Delete',
+                    icon: Icon(Icons.delete),
+                    tooltip: context.tr('delete'),
                     onPressed: _delete)
               ]
             : null,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Client *'),
+                decoration: InputDecoration(
+                    labelText: context.tr('project_owner_required')),
                 initialValue: _clientId,
-                items: _clients
-                    .map((c) =>
-                        DropdownMenuItem(value: c.id, child: Text(c.name)))
-                    .toList(),
-                onChanged: (v) => setState(() => _clientId = v),
-                validator: (v) => v == null ? 'Select a client' : null,
+                items: [
+                  ..._clients.map((c) =>
+                      DropdownMenuItem(value: c.id, child: Text(c.name))),
+                  DropdownMenuItem(
+                    value: _kAddNewClientValue,
+                    child: Text(context.tr('add_new_client')),
+                  ),
+                ],
+                onChanged: _onClientChanged,
+                validator: (v) => (v == null || v == _kAddNewClientValue)
+                    ? context.tr('err_select_project_owner')
+                    : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Name *'),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                decoration: InputDecoration(
+                    labelText: context.tr('project_name_required')),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.tr('err_enter_project_name')
+                    : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextFormField(
                 controller: _description,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(
+                    labelText: context.tr('project_description')),
                 maxLines: 2,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     flex: 2,
                     child: TextFormField(
                       controller: _budget,
+                      enabled: !_contractLocked,
                       decoration: InputDecoration(
-                        labelText: 'Budget *',
+                        labelText: context.tr('contract_value_required'),
                         prefixText:
                             _budgetCurrency == kCurrencySar ? 'SAR ' : 'YER ',
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       validator: (v) {
+                        if (_contractLocked) return null;
                         final s = v?.trim() ?? '';
-                        if (s.isEmpty) return 'Budget is required';
+                        if (s.isEmpty)
+                          return context.tr('err_valid_contract_value');
                         final d = Decimal.tryParse(s);
-                        if (d == null) return 'Enter a valid amount';
-                        if (d < Decimal.zero) return 'Budget must be >= 0';
+                        if (d == null)
+                          return context.tr('err_valid_contract_value');
+                        if (d < Decimal.zero)
+                          return context.tr('err_contract_value_gt_zero');
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Currency'),
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: context.tr('currency_label'),
+                      ),
                       initialValue: _budgetCurrency,
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: kCurrencyYer, child: Text('YER')),
+                            value: kCurrencyYer,
+                            child: Text(context.tr('yer'))),
                         DropdownMenuItem(
-                            value: kCurrencySar, child: Text('SAR')),
+                            value: kCurrencySar,
+                            child: Text(context.tr('sar'))),
                       ],
-                      onChanged: (v) => setState(() {
-                        _budgetCurrency = v ?? kCurrencyYer;
-                        if (_budgetCurrency == kCurrencyYer) {
-                          _exchangePolicy = kExchangePolicyPerTransaction;
-                          _fixedRate = '';
-                        }
-                      }),
+                      selectedItemBuilder: (context) => const [
+                        Text(
+                          kCurrencyYer,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          kCurrencySar,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      onChanged: _contractLocked
+                          ? null
+                          : (v) => setState(() {
+                                _budgetCurrency = v ?? kCurrencyYer;
+                                if (_budgetCurrency == kCurrencyYer) {
+                                  _exchangePolicy = kExchangePolicyPerTransaction;
+                                  _fixedRate = '';
+                                }
+                              }),
                     ),
                   ),
                 ],
               ),
+              if (_contractLocked)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_outline,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          context.tr('contract_value_locked'),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (_budgetCurrency == kCurrencySar) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   decoration:
-                      const InputDecoration(labelText: 'Exchange Policy'),
+                      InputDecoration(labelText: context.tr('exchange_policy')),
                   initialValue: _exchangePolicy,
-                  items: const [
+                  items: [
                     DropdownMenuItem(
-                        value: kExchangePolicyFixed, child: Text('Fixed Rate')),
+                        value: kExchangePolicyFixed,
+                        child: Text(context.tr('fixed_rate'))),
                     DropdownMenuItem(
                         value: kExchangePolicyPerTransaction,
-                        child: Text('Per Transaction')),
+                        child: Text(context.tr('per_transaction'))),
                   ],
                   onChanged: (v) => setState(() =>
                       _exchangePolicy = v ?? kExchangePolicyPerTransaction),
                 ),
                 if (_isSarFixed) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   TextFormField(
                     controller: TextEditingController(text: _fixedRate),
-                    decoration: const InputDecoration(
-                      labelText: 'Fixed Exchange Rate (YER per SAR)',
-                      hintText: 'e.g. 410.000000',
+                    decoration: InputDecoration(
+                      labelText: context.tr('yemeni_rials_per_1_saudi_riyal'),
+                      hintText: context.tr('fixed_exchange_rate_hint'),
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
@@ -364,39 +446,39 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                       if (!_isSarFixed) return null;
                       final s = v?.trim() ?? '';
                       if (s.isEmpty) {
-                        return 'Rate is required for fixed SAR policy';
+                        return context.tr('err_fixed_rate_required');
                       }
                       final d = Decimal.tryParse(s);
                       if (d == null || d <= Decimal.zero) {
-                        return 'Enter a positive rate';
+                        return context.tr('err_enter_positive_rate');
                       }
                       return null;
                     },
                   ),
                 ],
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: InkWell(
                       onTap: () => _pickDate(true),
                       child: InputDecorator(
-                        decoration:
-                            const InputDecoration(labelText: 'Start date'),
+                        decoration: InputDecoration(
+                            labelText: context.tr('start_date')),
                         child: Text(_startDate == null
                             ? '—'
                             : '${_startDate!.year}-${_startDate!.month.toString().padLeft(2, '0')}-${_startDate!.day.toString().padLeft(2, '0')}'),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
                       onTap: () => _pickDate(false),
                       child: InputDecorator(
                         decoration:
-                            const InputDecoration(labelText: 'End date'),
+                            InputDecoration(labelText: context.tr('end_date')),
                         child: Text(_endDate == null
                             ? '—'
                             : '${_endDate!.year}-${_endDate!.month.toString().padLeft(2, '0')}-${_endDate!.day.toString().padLeft(2, '0')}'),
@@ -405,19 +487,21 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Status'),
+                decoration:
+                    InputDecoration(labelText: context.tr('project_status')),
                 initialValue: _status,
                 items: _statuses
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .map((s) => DropdownMenuItem(
+                        value: s, child: Text(context.tr('status_${s}'))))
                     .toList(),
                 onChanged: (v) => setState(() => _status = v ?? 'planning'),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: 12),
                   child: Text(_error!,
                       style: TextStyle(
                           color: Theme.of(context).colorScheme.error)),
@@ -425,11 +509,13 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               FilledButton(
                 onPressed: _saving ? null : _save,
                 child: _saving
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_isEdit ? 'Update' : 'Create'),
+                    : Text(_isEdit
+                        ? context.tr('save_changes')
+                        : context.tr('create_project')),
               ),
             ],
           ),

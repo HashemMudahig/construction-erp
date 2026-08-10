@@ -72,18 +72,54 @@ class LocalPaymentRepository implements PaymentRepositoryInterface {
       throw ArgumentError('Project not found: $projectId');
     }
 
-    // Determine exchange rate and converted amount based on currency
+    // The stored converted YER amount is always the YER-equivalent of the
+    // original amount (an immutable snapshot for dashboard/reports). A rate
+    // is required whenever the original currency is SAR (to compute the YER
+    // equivalent), regardless of the contract currency. When the payment
+    // currency matches the contract currency the *user* does not need to
+    // enter a rate (the project fixed rate or settings default is used), but
+    // a rate is still resolved internally for the YER snapshot. Contract-
+    // currency aggregation is performed on read via convertToCurrency, so
+    // historical rates are preserved.
+    final contractCurrency = project.budgetCurrency;
+    final isCrossCurrency = originalCurrency != contractCurrency;
     int finalRate;
     int finalConverted;
     String finalRateSource;
 
     if (originalCurrency == kCurrencyYer) {
-      finalRate = kIdentityExchangeRate;
+      // YER original: the YER snapshot is identity. If the contract currency
+      // is SAR, the user must provide a YER/SAR rate so the contract-currency
+      // aggregation can convert YER→SAR on read; store that rate.
+      if (isCrossCurrency) {
+        if (exchangeRateScaled == null || exchangeRateScaled <= 0) {
+          if (project.exchangePolicy == kExchangePolicyFixed &&
+              project.fixedExchangeRateScaled != null &&
+              project.fixedExchangeRateScaled! > 0) {
+            finalRate = project.fixedExchangeRateScaled!;
+            finalRateSource = kRateSourceProject;
+          } else if (_settings != null) {
+            finalRate =
+                (await _settings.loadSettings()).defaultSarToYerRateScaled;
+            finalRateSource = kRateSourceDefault;
+          } else {
+            throw ArgumentError(
+              'Cross-currency payment requires a positive exchange rate',
+            );
+          }
+        } else {
+          finalRate = exchangeRateScaled;
+          finalRateSource = rateSource;
+        }
+        rateDate ??= paymentDate;
+      } else {
+        finalRate = kIdentityExchangeRate;
+        finalRateSource = kRateSourceIdentity;
+        rateDate = null;
+      }
       finalConverted = originalAmountMinor;
-      finalRateSource = kRateSourceIdentity;
-      rateDate = null;
     } else {
-      // SAR — need exchange rate
+      // SAR — need exchange rate for the YER snapshot.
       if (exchangeRateScaled == null || exchangeRateScaled <= 0) {
         // Use project fixed rate if available
         if (project.exchangePolicy == kExchangePolicyFixed &&
@@ -162,14 +198,18 @@ class LocalPaymentRepository implements PaymentRepositoryInterface {
     if (method != null) _validateMethod(method);
     if (paymentDate != null) _validatePaymentDate(paymentDate);
 
-    // If amount or rate changed, recalculate converted YER
+    // If amount, currency, or rate changed, recalculate the converted YER
+    // snapshot. A rate is required for SAR rows (for the YER snapshot);
+    // YER rows use identity. Contract-currency aggregation is performed on
+    // read via convertToCurrency, so historical rates are preserved.
     int? finalConverted;
     int? finalRate;
     String? finalRateSource;
     String? finalRateDate;
 
     final effectiveCurrency = originalCurrency ?? existing.originalCurrency;
-    final effectiveAmount = originalAmountMinor ?? existing.originalAmountMinor;
+    final effectiveAmount =
+        originalAmountMinor ?? existing.originalAmountMinor;
 
     if (effectiveCurrency == kCurrencyYer) {
       finalRate = kIdentityExchangeRate;

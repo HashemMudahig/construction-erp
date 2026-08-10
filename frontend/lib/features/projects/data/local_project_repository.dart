@@ -1,10 +1,14 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_constants.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/database/daos/clients_dao.dart';
+import '../../../core/database/daos/expenses_dao.dart';
+import '../../../core/database/daos/payments_dao.dart';
 import '../../../core/database/daos/projects_dao.dart';
+import '../../../core/database/finance/currency_conversion.dart';
 import '../../../core/uuid/uuid_util.dart';
 import '../domain/project_entity.dart';
 import '../domain/project_repository_interface.dart';
@@ -12,10 +16,14 @@ import 'project_mapper.dart';
 
 /// Local (Drift/SQLite) implementation of [ProjectRepositoryInterface].
 class LocalProjectRepository implements ProjectRepositoryInterface {
-  LocalProjectRepository(this._dao, this._clientsDao, AppDatabase db);
+  LocalProjectRepository(this._dao, this._clientsDao, AppDatabase db)
+      : _paymentsDao = db.paymentsDao,
+        _expensesDao = db.expensesDao;
 
   final ProjectsDao _dao;
   final ClientsDao _clientsDao;
+  final PaymentsDao _paymentsDao;
+  final ExpensesDao _expensesDao;
 
   @override
   Future<List<ProjectEntity>> list({
@@ -139,6 +147,27 @@ class LocalProjectRepository implements ProjectRepositoryInterface {
       }
     }
 
+    // Contract-value lock: once any financial transaction (payment, expense,
+    // or milestone) exists, the contract value (budgetAmountMinor) and
+    // currency can no longer be changed through a plain update. The original
+    // contract value is always preserved regardless.
+    final hasTransactions = await hasChildRecords(id);
+    if (hasTransactions) {
+      if (budgetAmountMinor != null &&
+          budgetAmountMinor != existing.budgetAmountMinor) {
+        throw StateError(
+          'Cannot edit contract value after payments, expenses, or '
+          'milestones have been recorded. Use a contract amendment.',
+        );
+      }
+      if (budgetCurrency != null &&
+          budgetCurrency != existing.budgetCurrency) {
+        throw StateError(
+          'Cannot change contract currency after transactions exist.',
+        );
+      }
+    }
+
     await _dao.updateProject(
       id,
       ProjectMapper.entityToUpdateCompanion(
@@ -188,17 +217,108 @@ class LocalProjectRepository implements ProjectRepositoryInterface {
   @override
   Future<ProjectFinancialSummary> getFinancialSummary(String id) async {
     UuidUtil.validate(id);
-    final totalPayments = await _dao.sumPaymentsYer(id);
-    final totalExpenses = await _dao.sumExpensesYer(id);
-    final balance = totalPayments - totalExpenses;
+
+    final project = await _dao.getProjectById(id);
+    if (project == null) {
+      throw ArgumentError('Project not found: $id');
+    }
+    final contractCurrency = project.budgetCurrency;
+    final contractValueMinor = project.budgetAmountMinor;
+
+    // Legacy YER aggregates (backward compatibility for dashboard/reports).
+    final totalPaymentsYer = await _dao.sumPaymentsYer(id);
+    final totalExpensesYer = await _dao.sumExpensesYer(id);
+    final yerBalance = totalPaymentsYer - totalExpensesYer;
     final margin =
-        totalPayments > 0 ? (balance / totalPayments).toDouble() : 0.0;
+        totalPaymentsYer > 0 ? (yerBalance / totalPaymentsYer).toDouble() : 0.0;
+
+    // Contract-currency aggregation. Each row is converted into the contract
+    // currency using its own immutable exchange-rate snapshot, so historical
+    // rates are preserved and never recalculated against the current rate.
+    final payments = await _paymentsDao.getActivePaymentsByProject(id);
+    final expenses = await _expensesDao.getActiveExpensesByProject(id);
+
+    final Map<String, int> paymentsByCurrency = {};
+    final Map<String, int> expensesByCurrency = {};
+    int totalPaymentsContract = 0;
+    int totalExpensesContract = 0;
+
+    for (final p in payments) {
+      paymentsByCurrency.update(
+        p.originalCurrency,
+        (v) => v + p.originalAmountMinor,
+        ifAbsent: () => p.originalAmountMinor,
+      );
+      totalPaymentsContract += convertToCurrency(
+        p.originalAmountMinor,
+        p.originalCurrency,
+        contractCurrency,
+        p.exchangeRateScaled,
+      );
+    }
+    for (final e in expenses) {
+      expensesByCurrency.update(
+        e.originalCurrency,
+        (v) => v + e.originalAmountMinor,
+        ifAbsent: () => e.originalAmountMinor,
+      );
+      totalExpensesContract += convertToCurrency(
+        e.originalAmountMinor,
+        e.originalCurrency,
+        contractCurrency,
+        e.exchangeRateScaled,
+      );
+    }
+
+    final remainingContractValue = contractValueMinor - totalPaymentsContract;
+    final netCashFlow = totalPaymentsContract - totalExpensesContract;
+
     return ProjectFinancialSummary(
-      totalPaymentsYer: totalPayments,
-      totalExpensesYer: totalExpenses,
-      balance: balance,
+      totalPaymentsYer: totalPaymentsYer,
+      totalExpensesYer: totalExpensesYer,
+      balance: yerBalance,
       profitMargin: margin,
+      contractCurrency: contractCurrency,
+      currentContractValue: contractValueMinor,
+      originalContractValue: project.originalContractValueMinor,
+      totalPaymentsContractCurrency: totalPaymentsContract,
+      totalExpensesContractCurrency: totalExpensesContract,
+      remainingContractValue: remainingContractValue,
+      netCashFlow: netCashFlow,
+      paymentsByCurrency: paymentsByCurrency.entries
+          .map((e) => CurrencyBreakdownEntry(
+              currency: e.key, amountMinor: e.value))
+          .toList()
+        ..sort((a, b) => a.currency.compareTo(b.currency)),
+      expensesByCurrency: expensesByCurrency.entries
+          .map((e) => CurrencyBreakdownEntry(
+              currency: e.key, amountMinor: e.value))
+          .toList()
+        ..sort((a, b) => a.currency.compareTo(b.currency)),
     );
+  }
+
+  @override
+  Future<ProjectEntity> amendContract({
+    required String id,
+    required int newContractValueMinor,
+  }) async {
+    UuidUtil.validate(id);
+    final existing = await _dao.getProjectById(id);
+    if (existing == null) {
+      throw ArgumentError('Project not found: $id');
+    }
+    _validateBudgetAmount(newContractValueMinor, existing.budgetCurrency);
+    // Only the current contract value (budgetAmountMinor) is updated; the
+    // original is preserved.
+    await _dao.updateProject(
+      id,
+      ProjectsCompanion(
+        budgetAmountMinor: Value(newContractValueMinor),
+      ),
+    );
+    final row = await _dao.getProjectById(id);
+    return ProjectMapper.rowToEntity(row!);
   }
 
   // ── Validation helpers ──

@@ -113,3 +113,70 @@ int roundHalfUp(Decimal value) {
 
 /// Returns the YER identity exchange rate for YER transactions.
 int yerIdentityRate() => identityExchangeRate;
+
+/// Converts a minor-unit amount in [fromCurrency] to [toCurrency] minor units
+/// using the immutable per-transaction exchange rate [exchangeRateScaled]
+/// (scale-6 INTEGER, expressed as YER per 1 SAR).
+///
+/// This is the canonical multi-currency conversion used to aggregate
+/// payments and expenses into the **contract currency**. It uses each
+/// row's own historical rate snapshot, so historical exchange rates are
+/// preserved and never recalculated against the current rate.
+///
+/// Conversion rules:
+/// - [fromCurrency] == [toCurrency]: identity (returns [amount] unchanged).
+/// - YER → SAR: `roundHalfUp(amount × sarMinorFactor × exchangeRateFactor ÷ rate)`
+///   where `rate` is the scale-6 YER/SAR rate. This is the exact inverse of
+///   the SAR → YER formula in [convertToYer].
+/// - SAR → YER: delegates to [convertToYer].
+///
+/// Throws [ArgumentError] if:
+/// - Either currency is unsupported.
+/// - The currencies differ and [exchangeRateScaled] is not positive.
+/// - The result overflows SQLite signed 64-bit range.
+///
+/// Example (YER → SAR at rate 420.000000):
+///   amount = 100,000,000 YER, rate = 420000000
+///   result = roundHalfUp(100000000 × 100 × 1000000 ÷ 420000000)
+///         = roundHalfUp(23809523.8) = 23809524 SAR minor
+int convertToCurrency(
+  int amount,
+  String fromCurrency,
+  String toCurrency,
+  int exchangeRateScaled,
+) {
+  validateCurrencyCode(fromCurrency);
+  validateCurrencyCode(toCurrency);
+
+  if (fromCurrency == toCurrency) {
+    return amount;
+  }
+
+  if (exchangeRateScaled <= 0) {
+    throw ArgumentError(
+        'Exchange rate must be positive when converting between currencies');
+  }
+
+  if (fromCurrency == kCurrencyYer && toCurrency == kCurrencySar) {
+    // YER → SAR: amount × sarMinorFactor × exchangeRateFactor ÷ rate
+    // This is the exact inverse of convertToYer's SAR → YER formula:
+    //   YER = SAR × rate ÷ (sarFactor × rateFactor)
+    //   SAR = YER × sarFactor × rateFactor ÷ rate
+    final amountBig = BigInt.from(amount);
+    final sarFactor = BigInt.from(kSarMinorFactor);
+    final rateFactor = BigInt.from(kExchangeRateFactor);
+    final rateBig = BigInt.from(exchangeRateScaled);
+    final numerator = amountBig * sarFactor * rateFactor;
+    final halfRate = rateBig ~/ BigInt.two;
+    final rounded = (numerator + halfRate) ~/ rateBig;
+    if (rounded > BigInt.from(kSqliteIntMax) ||
+        rounded < BigInt.from(kSqliteIntMin)) {
+      throw ArgumentError(
+          'Converted amount overflows SQLite INTEGER range: $rounded');
+    }
+    return rounded.toInt();
+  }
+
+  // SAR → YER
+  return convertToYer(amount, fromCurrency, exchangeRateScaled);
+}

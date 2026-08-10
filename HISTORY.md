@@ -1,5 +1,14 @@
 # Project History
 
+## 2026-07-27 — Project Details Financial/Localization Correction
+
+- Renamed Profitability to Financial summary and added explicit surplus,
+  balanced, deficit, and reliable-basis cost-overrun presentation.
+- Standardized exact signed/grouped amounts and localized Project Details
+  expense, payment, and milestone flows without changing canonical values.
+- Validation: focused 9, full Flutter 444, debug APK built; schema v4,
+  Backup/Restore, startup recovery, and offline boundaries preserved.
+
 ## 2026-07-26 — Phase 13 Release Validation Completed
 
 - Added pre-provider SQLite recovery for interrupted Restore remnants.

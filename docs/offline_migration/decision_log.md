@@ -1,5 +1,18 @@
 # Decision Log
 
+## ADR-015 — Inline client creation from the project form (UX)
+
+- **Date:** 2026-08-08
+- **Status:** Accepted
+- **Decision:** Allow creating a client without leaving the "Create Project"
+  screen, via a localized in-form dialog. The dialog uses the existing
+  `ClientRepositoryInterface` (local-first); UI never touches Drift directly
+  and no API/Dio dependency is introduced.
+- **Consequences:** Project creation flow improved; no schema, repository,
+  routing, or backend changes. Existing client/project persistence and
+  validation are reused. All user-facing strings are localized (Arabic +
+  English); technical exceptions are never exposed to the user.
+
 ## ADR-014 — Conservative startup recovery and Android release boundary
 
 - **Date:** 2026-07-26

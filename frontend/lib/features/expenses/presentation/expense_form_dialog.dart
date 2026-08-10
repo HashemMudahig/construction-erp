@@ -1,10 +1,14 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/localized_business_labels.dart';
 
 import '../../../core/database/database_constants.dart';
+import '../../../core/database/finance/currency_conversion.dart';
 import '../../../core/database/finance/exchange_rate.dart';
 import '../../../core/database/finance/money_scale.dart';
+import '../../projects/presentation/project_providers.dart';
 import '../../settings/presentation/settings_provider.dart';
 import '../domain/expense_entity.dart';
 import 'expense_providers.dart';
@@ -26,6 +30,7 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
   DateTime? _expenseDate;
   String _category = 'materials';
   String _currency = kCurrencyYer;
+  String _contractCurrency = kCurrencyYer;
   bool _saving = false;
 
   bool get _isEdit => widget.expense != null;
@@ -36,11 +41,12 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
     'permits',
     'other'
   ];
-  bool get _isSar => _currency == kCurrencySar;
+  bool get _needsRate => _currency != _contractCurrency;
 
   @override
   void initState() {
     super.initState();
+    _loadContractCurrency();
     if (widget.expense != null) {
       final e = widget.expense!;
       _currency = e.originalCurrency;
@@ -49,10 +55,27 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
           formatMinorUnits(e.originalAmountMinor, e.originalCurrency);
       _notes.text = e.notes ?? '';
       _expenseDate = e.expenseDate;
-      if (_isSar) {
+      if (_needsRate) {
         _rate.text = formatScaledExchangeRate(e.exchangeRateScaled);
       }
     }
+  }
+
+  Future<void> _loadContractCurrency() async {
+    try {
+      final project =
+          await ref.read(projectRepositoryProvider).getById(widget.projectId);
+      if (mounted && project != null) {
+        setState(() => _contractCurrency = project.budgetCurrency);
+        if (_needsRate && _rate.text.isEmpty) {
+          final settings = ref.read(settingsProvider).valueOrNull;
+          if (settings != null) {
+            _rate.text =
+                formatScaledExchangeRate(settings.defaultSarToYerRateScaled);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -65,6 +88,16 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate() || _expenseDate == null) return;
+    // Over-cash warning: if adding this expense will make total expenses
+    // exceed received payments, warn the user (non-blocking — they may
+    // continue because the contractor may finance the project).
+    if (!_isEdit) {
+      final overCash = await _checkExpenseOverCash();
+      if (overCash != null) {
+        final confirmed = await _showOverCashWarning(overCash);
+        if (confirmed != true) return;
+      }
+    }
     setState(() => _saving = true);
     final actions = ref.read(expenseActionsProvider);
     String fmt(DateTime d) =>
@@ -85,13 +118,13 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
 
     int? rateScaled;
     String rateSource = kRateSourceIdentity;
-    if (_isSar) {
+    if (_needsRate) {
       final rateStr = _rate.text.trim();
       if (rateStr.isEmpty) {
         setState(() => _saving = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Exchange rate required for SAR')));
+              SnackBar(content: Text(context.tr('err_exchange_rate_gt_zero'))));
         }
         return;
       }
@@ -118,7 +151,7 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
         originalCurrency: _currency,
         exchangeRateScaled: rateScaled,
         rateSource: rateSource,
-        rateDate: _isSar ? fmt(_expenseDate!) : null,
+        rateDate: _needsRate ? fmt(_expenseDate!) : null,
         expenseDate: fmt(_expenseDate!),
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       );
@@ -130,7 +163,7 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
         originalCurrency: _currency,
         exchangeRateScaled: rateScaled,
         rateSource: rateSource,
-        rateDate: _isSar ? fmt(_expenseDate!) : null,
+        rateDate: _needsRate ? fmt(_expenseDate!) : null,
         expenseDate: fmt(_expenseDate!),
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       );
@@ -143,10 +176,141 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
     }
   }
 
+  /// Returns the over-cash breakdown if adding this expense would make total
+  /// expenses exceed received payments, or `null` if there is no over-cash
+  /// situation or the inputs are invalid.
+  Future<_OverCashInfo?> _checkExpenseOverCash() async {
+    final amountStr = _amount.text.trim();
+    final rateStr = _rate.text.trim();
+    final amountDec = Decimal.tryParse(amountStr);
+    if (amountDec == null || amountDec <= Decimal.zero) return null;
+    int amountMinor;
+    int? rateScaled;
+    try {
+      amountMinor = toMinorUnits(amountDec, _currency);
+      if (_needsRate) {
+        final rateDec = Decimal.tryParse(rateStr);
+        if (rateDec == null || rateDec <= Decimal.zero) return null;
+        rateScaled = toScaledExchangeRate(rateDec);
+      }
+    } catch (_) {
+      return null;
+    }
+    try {
+      final summary = await ref
+          .read(projectRepositoryProvider)
+          .getFinancialSummary(widget.projectId);
+      // Compare in YER (the canonical converted snapshot) for consistency.
+      final newExpenseYer = _currency == kCurrencyYer
+          ? amountMinor
+          : convertToYer(amountMinor, kCurrencySar, rateScaled!);
+      final totalExpensesAfter = summary.totalExpensesYer + newExpenseYer;
+      if (totalExpensesAfter > summary.totalPaymentsYer) {
+        return _OverCashInfo(
+          receivedPayments: summary.totalPaymentsYer,
+          totalExpensesAfter: totalExpensesAfter,
+          deficit: totalExpensesAfter - summary.totalPaymentsYer,
+        );
+      }
+    } catch (_) {
+      // If the summary cannot be read, do not block the expense.
+    }
+    return null;
+  }
+
+  /// Shows the over-cash warning dialog. Returns `true` if the user chooses to
+  /// continue, `false` otherwise.
+  Future<bool?> _showOverCashWarning(_OverCashInfo info) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: Theme.of(ctx).colorScheme.error),
+            const SizedBox(width: 8),
+            Text(context.tr('financial_alert')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.tr('expense_overcash_warning')),
+              const SizedBox(height: 16),
+              _ConfirmationRow(
+                label: context.tr('received_payments_label'),
+                value: formatCurrencyDisplay(info.receivedPayments, 'YER'),
+              ),
+              _ConfirmationRow(
+                label: context.tr('total_expenses_after_adding'),
+                value: formatCurrencyDisplay(info.totalExpensesAfter, 'YER'),
+              ),
+              _ConfirmationRow(
+                label: context.tr('expected_deficit'),
+                value: formatCurrencyDisplay(info.deficit, 'YER'),
+                bold: true,
+              ),
+              const SizedBox(height: 16),
+              Text(context.tr('continue_question'),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(context.tr('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.tr('proceed')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Live converted-value preview for cross-currency expenses.
+  Widget _buildConvertedPreview() {
+    final amountStr = _amount.text.trim();
+    final rateStr = _rate.text.trim();
+    final amountDec = Decimal.tryParse(amountStr);
+    final rateDec = Decimal.tryParse(rateStr);
+    if (amountDec == null || amountDec <= Decimal.zero) {
+      return const SizedBox.shrink();
+    }
+    if (rateDec == null || rateDec <= Decimal.zero) {
+      return const SizedBox.shrink();
+    }
+    int amountMinor;
+    int rateScaled;
+    try {
+      amountMinor = toMinorUnits(amountDec, _currency);
+      rateScaled = toScaledExchangeRate(rateDec);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+    final convertedMinor = convertToCurrency(
+        amountMinor, _currency, _contractCurrency, rateScaled);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '${context.tr('equivalent')}: ${formatCurrencyDisplay(convertedMinor, _contractCurrency)}',
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.primary),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit expense' : 'New expense'),
+      title: Text(
+          context.tr(_isEdit ? 'edit_expense_title' : 'new_expense_title')),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -155,13 +319,16 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration:
+                    InputDecoration(labelText: context.tr('expense_category')),
                 items: _categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(localizedExpenseCategory(context, c))))
                     .toList(),
                 onChanged: (v) => setState(() => _category = v ?? 'materials'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -169,37 +336,57 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
                     child: TextFormField(
                       controller: _amount,
                       decoration: InputDecoration(
-                        labelText: 'Amount *',
-                        prefixText: _isSar ? 'SAR ' : 'YER ',
+                        labelText: context.tr('expense_amount_required'),
+                        prefixText: '$_currency ',
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
                       validator: (v) {
                         final s = v?.trim() ?? '';
-                        if (s.isEmpty) return 'Amount is required';
+                        if (s.isEmpty) {
+                          return context.tr('err_expense_amount_required');
+                        }
                         final d = Decimal.tryParse(s);
                         if (d == null || d <= Decimal.zero) {
-                          return 'Amount must be > 0';
+                          return context.tr('err_expense_amount_positive');
                         }
                         return null;
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Currency'),
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: context.tr('currency_label'),
+                      ),
                       initialValue: _currency,
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: kCurrencyYer, child: Text('YER')),
+                            value: kCurrencyYer,
+                            child: Text(context.tr('yer'))),
                         DropdownMenuItem(
-                            value: kCurrencySar, child: Text('SAR')),
+                            value: kCurrencySar,
+                            child: Text(context.tr('sar'))),
+                      ],
+                      selectedItemBuilder: (context) => const [
+                        Text(
+                          kCurrencyYer,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          kCurrencySar,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                       onChanged: (v) => setState(() {
                         _currency = v ?? kCurrencyYer;
-                        if (_currency == kCurrencyYer) {
+                        if (!_needsRate) {
                           _rate.clear();
                         } else if (_rate.text.isEmpty) {
                           final settings =
@@ -215,29 +402,34 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
                   ),
                 ],
               ),
-              if (_isSar) ...[
-                const SizedBox(height: 12),
+              if (_needsRate) ...[
+                SizedBox(height: 12),
                 TextFormField(
                   controller: _rate,
-                  decoration: const InputDecoration(
-                    labelText: 'Exchange Rate (YER per SAR)',
+                  decoration: InputDecoration(
+                    labelText: context.tr('exchange_rate_yer_sar'),
                     hintText: 'e.g. 410.000000',
                   ),
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
                   validator: (v) {
-                    if (!_isSar) return null;
+                    if (!_needsRate) return null;
                     final s = v?.trim() ?? '';
-                    if (s.isEmpty) return 'Rate is required for SAR';
+                    if (s.isEmpty) {
+                      return context.tr('err_rate_required_sar');
+                    }
                     final d = Decimal.tryParse(s);
                     if (d == null || d <= Decimal.zero) {
-                      return 'Enter a positive rate';
+                      return context.tr('err_exchange_rate_gt_zero');
                     }
                     return null;
                   },
                 ),
+                SizedBox(height: 8),
+                _buildConvertedPreview(),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -249,17 +441,17 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
                   if (picked != null) setState(() => _expenseDate = picked);
                 },
                 child: InputDecorator(
-                  decoration:
-                      const InputDecoration(labelText: 'Expense date *'),
+                  decoration: InputDecoration(
+                      labelText: context.tr('expense_date_required')),
                   child: Text(_expenseDate == null
-                      ? 'Select date'
+                      ? context.tr('select_date')
                       : '${_expenseDate!.year}-${_expenseDate!.month.toString().padLeft(2, '0')}-${_expenseDate!.day.toString().padLeft(2, '0')}'),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextFormField(
                 controller: _notes,
-                decoration: const InputDecoration(labelText: 'Notes'),
+                decoration: InputDecoration(labelText: context.tr('notes')),
                 maxLines: 2,
               ),
             ],
@@ -269,17 +461,72 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
+            child: Text(context.tr('cancel'))),
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
-              ? const SizedBox(
+              ? SizedBox(
                   height: 20,
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(_isEdit ? 'Update' : 'Create'),
+              : Text(_isEdit
+                  ? context.tr('save_expense')
+                  : context.tr('save_expense')),
         ),
       ],
+    );
+  }
+}
+
+/// Over-cash warning breakdown (all in YER minor units).
+class _OverCashInfo {
+  const _OverCashInfo({
+    required this.receivedPayments,
+    required this.totalExpensesAfter,
+    required this.deficit,
+  });
+  final int receivedPayments;
+  final int totalExpensesAfter;
+  final int deficit;
+}
+
+/// A labeled value row used inside confirmation dialogs.
+class _ConfirmationRow extends StatelessWidget {
+  const _ConfirmationRow({
+    required this.label,
+    required this.value,
+    this.bold = false,
+  });
+  final String label;
+  final String value;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: bold ? FontWeight.bold : FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'project_providers.dart';
+import '../../../core/database/finance/money_scale.dart';
 import '../../../core/localization/app_localizations.dart';
 
 class ProjectListScreen extends ConsumerStatefulWidget {
@@ -70,9 +71,7 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                   child: DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText:
-                          Localizations.localeOf(context).languageCode == 'ar'
-                              ? 'تصفية حسب الحالة'
-                              : 'Filter by Status',
+                          context.tr('filter_by_status'),
                       isDense: true,
                       prefixIcon: const Icon(Icons.filter_list, size: 22),
                       filled: true,
@@ -83,25 +82,10 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                       DropdownMenuItem(
                           value: null,
                           child: Text(
-                              Localizations.localeOf(context).languageCode ==
-                                      'ar'
-                                  ? 'جميع الحالات'
-                                  : 'All statuses')),
+                              context.tr('all_statuses'))),
                       ..._statuses.map((s) {
-                        final isAr =
-                            Localizations.localeOf(context).languageCode ==
-                                'ar';
-                        String label = s.replaceAll('_', ' ');
-                        if (s == 'active') label = isAr ? 'نشط' : 'Active';
-                        if (s == 'completed') {
-                          label = isAr ? 'مكتمل' : 'Completed';
-                        }
-                        if (s == 'on_hold') label = isAr ? 'معلق' : 'On Hold';
-                        if (s == 'cancelled') {
-                          label = isAr ? 'ملغى' : 'Cancelled';
-                        }
-                        return DropdownMenuItem(value: s, child: Text(label));
-                      }),
+                      return DropdownMenuItem(value: s, child: Text(context.tr('status_$s')));
+                    }),
                     ],
                     onChanged: (v) {
                       setState(() => _statusFilter = v);
@@ -123,11 +107,8 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
             onRetry: () => ref.invalidate(projectsListProvider)),
         data: (projects) {
           if (projects.isEmpty) {
-            final isAr = Localizations.localeOf(context).languageCode == 'ar';
             return _EmptyView(
-              message: isAr
-                  ? 'لا يوجد مشاريع بعد. أضف مشروعك الأول.'
-                  : 'No projects yet. Add your first project.',
+              message: context.tr('no_projects'),
               cta: context.tr('add_project'),
               onCta: () => context.go('/projects/new'),
             );
@@ -209,7 +190,8 @@ class _ProjectCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${project.budget.toStringAsFixed(2)} ${context.tr('currency')}',
+                      formatCurrencyDisplay(project.budgetAmountMinor,
+                          project.budgetCurrency),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -243,12 +225,7 @@ class _ProjectCard extends StatelessWidget {
   }
 
   String _formatStatus(BuildContext context, String s) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    if (s == 'active') return isAr ? 'نشط' : 'Active';
-    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
-    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
-    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
-    return s.replaceAll('_', ' ');
+    return context.tr('status_$s');
   }
 }
 
@@ -286,9 +263,7 @@ class _ErrorView extends StatelessWidget {
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: Text(
-                      Localizations.localeOf(context).languageCode == 'ar'
-                          ? 'إعادة المحاولة'
-                          : 'Retry'),
+                      context.tr('retry')),
                 ),
               ),
             ],

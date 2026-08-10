@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/backup_manifest.dart';
@@ -18,25 +19,21 @@ class BackupRestoreSection extends ConsumerWidget {
       children: [
         _BackupCard(
           icon: Icons.backup_outlined,
-          title: isArabic ? 'النسخ الاحتياطي' : 'Backup',
+          title: context.tr('backup'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(isArabic
-                  ? 'أنشئ نسخة كاملة من بيانات العمل والإعدادات واحفظها في مكان محمي.'
-                  : 'Create a complete copy of local business data and settings, then store it in a protected location.'),
+              Text(context.tr('backup_desc')),
               const SizedBox(height: 8),
               Text(
-                isArabic
-                    ? 'ملفات النسخ الاحتياطي غير مشفرة ولا تتضمن كلمات مرور أو رموز دخول.'
-                    : 'Backup files are not encrypted and contain no credentials.',
+                context.tr('backup_warning'),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: state.isBusy ? null : notifier.createBackup,
                 icon: const Icon(Icons.save_alt),
-                label: Text(isArabic ? 'إنشاء نسخة احتياطية' : 'Create backup'),
+                label: Text(context.tr('create_backup')),
               ),
             ],
           ),
@@ -44,22 +41,18 @@ class BackupRestoreSection extends ConsumerWidget {
         const SizedBox(height: 16),
         _BackupCard(
           icon: Icons.restore,
-          title: isArabic ? 'الاسترجاع' : 'Restore',
+          title: context.tr('restore'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(isArabic
-                  ? 'يستبدل الاسترجاع جميع البيانات المحلية الحالية؛ لا يدمج السجلات.'
-                  : 'Restore replaces all current local data; it does not merge records.'),
+              Text(context.tr('restore_desc1')),
               const SizedBox(height: 8),
-              Text(isArabic
-                  ? 'فشل التحقق لا يغير بياناتك الحالية.'
-                  : 'Failed validation does not modify current data.'),
+              Text(context.tr('restore_desc2')),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: state.isBusy ? null : notifier.selectRestore,
                 icon: const Icon(Icons.folder_open),
-                label: Text(isArabic ? 'اختيار نسخة' : 'Select backup'),
+                label: Text(context.tr('select_backup')),
               ),
             ],
           ),
@@ -69,7 +62,7 @@ class BackupRestoreSection extends ConsumerWidget {
           const LinearProgressIndicator(),
           const SizedBox(height: 8),
           Text(
-            _progressLabel(state.operation, isArabic),
+            _progressLabel(context, state.operation),
             textAlign: TextAlign.center,
           ),
         ],
@@ -86,38 +79,38 @@ class BackupRestoreSection extends ConsumerWidget {
         if (state.message != null) ...[
           const SizedBox(height: 16),
           SelectableText(
-            _localizedMessage(state.message!, isArabic),
+            _localizedMessage(context, state.message!),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: notifier.clearResult,
-            child: Text(isArabic ? 'إغلاق' : 'Dismiss'),
+            child: Text(context.tr('dismiss')),
           ),
         ],
       ],
     );
   }
 
-  String _progressLabel(BackupMaintenanceState operation, bool isArabic) {
+  String _progressLabel(BuildContext context, BackupMaintenanceState operation) {
     return switch (operation) {
       BackupMaintenanceState.creatingBackup =>
-        isArabic ? 'جارٍ إنشاء النسخة…' : 'Creating backup…',
+        context.tr('creating_backup'),
       BackupMaintenanceState.validatingRestore =>
-        isArabic ? 'جارٍ التحقق من النسخة…' : 'Validating backup…',
+        context.tr('validating_backup'),
       BackupMaintenanceState.restoring =>
-        isArabic ? 'جارٍ استبدال البيانات بأمان…' : 'Restoring safely…',
+        context.tr('restoring_safely'),
       _ => '',
     };
   }
 
-  String _localizedMessage(String message, bool isArabic) {
-    if (!isArabic) return message;
+  String _localizedMessage(BuildContext context, String message) {
+
     if (message == 'Backup created successfully.') {
-      return 'تم إنشاء النسخة الاحتياطية بنجاح.';
+      return context.tr('backup_created_successfully');
     }
     if (message == 'Restore completed successfully.') {
-      return 'تم الاسترجاع بنجاح.';
+      return context.tr('restore_completed_successfully');
     }
     return message;
   }
@@ -140,12 +133,12 @@ class _RestorePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final counts = manifest.recordCounts;
     final rows = <(String, int)>[
-      (isArabic ? 'العملاء' : 'Clients', counts.clients),
-      (isArabic ? 'المشاريع' : 'Projects', counts.projects),
-      (isArabic ? 'المراحل' : 'Milestones', counts.milestones),
-      (isArabic ? 'الدفعات' : 'Payments', counts.payments),
-      (isArabic ? 'المصروفات' : 'Expenses', counts.expenses),
-      (isArabic ? 'الإعدادات' : 'Settings', counts.appSettings),
+      (context.tr('clients'), counts.clients),
+      (context.tr('projects'), counts.projects),
+      (context.tr('milestones'), counts.milestones),
+      (context.tr('payments'), counts.payments),
+      (context.tr('expenses'), counts.expenses),
+      (context.tr('app_settings'), counts.appSettings),
     ];
     return Card(
       color: Theme.of(context).colorScheme.errorContainer,
@@ -155,7 +148,7 @@ class _RestorePreview extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              isArabic ? 'معاينة النسخة' : 'Backup preview',
+              context.tr('backup_preview'),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -171,9 +164,7 @@ class _RestorePreview extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              isArabic
-                  ? 'تحذير: سيؤدي التأكيد إلى استبدال جميع البيانات المحلية الحالية.'
-                  : 'Warning: confirmation will replace all current local data.',
+              context.tr('restore_warning'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -183,7 +174,7 @@ class _RestorePreview extends StatelessWidget {
               children: [
                 TextButton(
                   onPressed: onCancel,
-                  child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                  child: Text(context.tr('cancel')),
                 ),
                 FilledButton(
                   style: FilledButton.styleFrom(
@@ -191,7 +182,7 @@ class _RestorePreview extends StatelessWidget {
                   ),
                   onPressed: onConfirm,
                   child: Text(
-                      isArabic ? 'استبدال البيانات' : 'Replace local data'),
+                      context.tr('replace_local_data')),
                 ),
               ],
             ),

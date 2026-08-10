@@ -43,6 +43,7 @@ class ProjectDto {
         name: name,
         description: description,
         budgetAmountMinor: _parseBudgetMinor(budget),
+        originalContractValueMinor: _parseBudgetMinor(budget),
         budgetCurrency: 'YER',
         exchangePolicy: 'per_transaction',
         fixedExchangeRateScaled: null,

@@ -67,15 +67,39 @@ class LocalExpenseRepository implements ExpenseRepositoryInterface {
       throw ArgumentError('Project not found: $projectId');
     }
 
+    final contractCurrency = project.budgetCurrency;
+    final isCrossCurrency = originalCurrency != contractCurrency;
     int finalRate;
     int finalConverted;
     String finalRateSource;
 
     if (originalCurrency == kCurrencyYer) {
-      finalRate = kIdentityExchangeRate;
+      if (isCrossCurrency) {
+        if (exchangeRateScaled == null || exchangeRateScaled <= 0) {
+          if (project.exchangePolicy == kExchangePolicyFixed &&
+              project.fixedExchangeRateScaled != null &&
+              project.fixedExchangeRateScaled! > 0) {
+            finalRate = project.fixedExchangeRateScaled!;
+            finalRateSource = kRateSourceProject;
+          } else if (_settings != null) {
+            finalRate =
+                (await _settings.loadSettings()).defaultSarToYerRateScaled;
+            finalRateSource = kRateSourceDefault;
+          } else {
+            throw ArgumentError(
+                'Cross-currency expense requires a positive exchange rate');
+          }
+        } else {
+          finalRate = exchangeRateScaled;
+          finalRateSource = rateSource;
+        }
+        rateDate ??= expenseDate;
+      } else {
+        finalRate = kIdentityExchangeRate;
+        finalRateSource = kRateSourceIdentity;
+        rateDate = null;
+      }
       finalConverted = originalAmountMinor;
-      finalRateSource = kRateSourceIdentity;
-      rateDate = null;
     } else {
       if (exchangeRateScaled == null || exchangeRateScaled <= 0) {
         if (project.exchangePolicy == kExchangePolicyFixed &&
@@ -158,7 +182,8 @@ class LocalExpenseRepository implements ExpenseRepositoryInterface {
     String? finalRateDate;
 
     final effectiveCurrency = originalCurrency ?? existing.originalCurrency;
-    final effectiveAmount = originalAmountMinor ?? existing.originalAmountMinor;
+    final effectiveAmount =
+        originalAmountMinor ?? existing.originalAmountMinor;
 
     if (effectiveCurrency == kCurrencyYer) {
       finalRate = kIdentityExchangeRate;

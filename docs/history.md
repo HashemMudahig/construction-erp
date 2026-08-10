@@ -1,5 +1,57 @@
 # Project History
 
+## 2026-08-09 — Financial Validation, Contract Safety, and Amendment Architecture (Frontend)
+
+- Added contract amendment architecture (schema v5): `originalContractValue`
+  is preserved separately from the current contract value; financial summaries
+  use the current value. Contract value editing is locked once transactions
+  exist. A new `amendContract` method changes the current value without
+  overwriting the original.
+- Added cross-currency payment confirmation and expense over-cash warning
+  dialogs (non-blocking), all in Arabic with exact integer arithmetic.
+- Fixed the YER→SAR conversion formula. No backend/API changes.
+- Validation: 491 Flutter tests passed (15 new); analyzer clean of errors.
+
+## 2026-08-08 — Phase 2: Inline Client Creation from Project Form (Frontend UX)
+
+- Improved the project creation flow so a user can create a client without
+  leaving the "Create Project" screen. The client dropdown includes an
+  "إضافة عميل جديد" action that opens a localized in-form dialog; on save
+  the client is created via the existing `ClientRepositoryInterface` and
+  auto-selected.
+- Aligned all dialog labels to Arabic client terminology and replaced raw
+  exception exposure with friendly localized error messages. No backend,
+  schema, routing, or repository changes; no Dio/API calls added.
+- Validation: 476 Flutter tests passed (incl. new error-handling test);
+  analyzer clean of errors. Existing clients/projects tests unchanged.
+
+## 2026-08-08 — Unified Currency Display Formatting and Responsive Financial Rows (Frontend)
+
+- Presentation-only change: added a unified currency display formatter
+  (`formatCurrencyDisplay`/`formatCurrencyCompact`) and replaced the four
+  per-screen formatters in dashboard, reports, project detail, and project
+  list so all amounts render consistently (YER: `400,000 YER`, SAR:
+  `250,000.00 SAR`).
+- Fixed RenderFlex overflow in the project detail financial cards and total
+  banners by making rows responsive (`Expanded`/`Flexible`); verified at small
+  screen size in both EN and RTL Arabic.
+- Localized dashboard chart tooltip labels. No database schema, exchange,
+  or calculation logic changes.
+- Validation: 475 Flutter tests passed (22 new). Analyzer clean of new
+  errors.
+
+## 2026-08-08 — Inline Client Creation from Project Form (Frontend UX)
+
+- Improved the project creation workflow so users can create a client without
+  leaving the project form. The client dropdown now includes an "add new
+  project owner" entry that opens an inline dialog and auto-selects the
+  created client.
+- No database schema, backend, routing, or package changes. The dialog goes
+  through the existing `ClientRepositoryInterface` and Riverpod providers,
+  preserving the local-first architecture. Hardcoded strings were replaced
+  with localized Arabic/English keys.
+- Validation: 453 Flutter tests passed (9 new). Analyzer clean of new errors.
+
 ## 2026-07-26 — Phase 13 Release Validation
 
 - Added safe startup recovery before database/provider exposure.

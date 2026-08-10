@@ -137,3 +137,79 @@ String formatMinorUnits(int minorUnits, String currencyCode) {
   final result = '$intPart.$fracStr';
   return isNegative ? '-$result' : result;
 }
+
+/// Adds thousands separators (`,`) to the integer part of [digits].
+///
+/// [digits] must be a string of decimal digits, optionally with a leading
+/// `-`. Used by the currency display formatters.
+String _groupThousands(String digits) {
+  final isNegative = digits.startsWith('-');
+  final abs = isNegative ? digits.substring(1) : digits;
+  final grouped = abs.replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
+  return isNegative ? '-$grouped' : grouped;
+}
+
+/// Unified currency display formatter.
+///
+/// Formats [minorUnits] for [currencyCode] with:
+/// - The correct number of decimal places (YER: 0, SAR: 2).
+/// - Thousands separators (`,`).
+/// - A leading `-` for negative values.
+/// - The currency code as a suffix, separated by a single space.
+///
+/// Examples:
+///   `formatCurrencyDisplay(400000, 'YER')` → `'400,000 YER'`
+///   `formatCurrencyDisplay(25000000, 'SAR')` → `'250,000.00 SAR'`
+///   `formatCurrencyDisplay(-307000, 'YER')` → `'-307,000 YER'`
+///   `formatCurrencyDisplay(150000000, 'YER')` → `'150,000,000 YER'`
+///
+/// This is a presentation-only formatter. It never touches financial
+/// calculations, exchange logic, or stored values. It uses Western digits
+/// in both UI locales to match the established accounting display contract.
+String formatCurrencyDisplay(int minorUnits, String currencyCode) {
+  validateCurrencyCode(currencyCode);
+  final raw = formatMinorUnits(minorUnits.abs(), currencyCode);
+  final parts = raw.split('.');
+  final grouped = _groupThousands(parts.first);
+  final decimals = parts.length > 1 ? '.${parts[1]}' : '';
+  final sign = minorUnits < 0 ? '-' : '';
+  return '$sign$grouped$decimals $currencyCode';
+}
+
+/// Compact currency display formatter for space-constrained cards.
+///
+/// Returns a short form using K (thousands) or M (millions) with the
+/// currency code suffix. Examples:
+///   `formatCurrencyCompact(250000, 'SAR')` → `'250K SAR'`
+///   `formatCurrencyCompact(1500000, 'YER')` → `'1.5M YER'`
+///   `formatCurrencyDisplay` should be used wherever space allows; this
+///   helper is only for small cards that would otherwise clip.
+String formatCurrencyCompact(int minorUnits, String currencyCode) {
+  validateCurrencyCode(currencyCode);
+  final scale = currencyScale(currencyCode);
+  final factor = minorUnitFactor(currencyCode);
+  final isNegative = minorUnits < 0;
+  final absMinor = isNegative ? -minorUnits : minorUnits;
+  // Convert to major units as a double only for compact scaling. This is
+  // display-only; no financial calculation uses this value.
+  final major = absMinor / factor;
+  String compact;
+  if (major >= 1000000) {
+    compact = '${(major / 1000000).toStringAsFixed(1)}M';
+  } else if (major >= 1000) {
+    final thousands = major / 1000;
+    compact = thousands == thousands.roundToDouble()
+        ? '${thousands.round()}K'
+        : '${thousands.toStringAsFixed(1)}K';
+  } else if (scale == 2) {
+    final intPart = absMinor ~/ factor;
+    final fracPart = absMinor % factor;
+    compact = '$intPart.${fracPart.toString().padLeft(scale, '0')}';
+  } else {
+    compact = '$absMinor';
+  }
+  return '${isNegative ? '-' : ''}$compact $currencyCode';
+}

@@ -142,10 +142,10 @@ void main() {
     expect(source, contains('databaseSha256'));
   });
 
-  test('database remains schema version 4 and opens offline', () async {
+  test('database remains schema version 5 and opens offline', () async {
     final database = AppDatabase(NativeDatabase.memory());
-    expect(kSchemaVersion, 4);
-    expect(database.schemaVersion, 4);
+    expect(kSchemaVersion, 5);
+    expect(database.schemaVersion, 5);
     expect(await database.customSelect('SELECT 1 AS value').getSingle(),
         isNotNull);
     await database.close();

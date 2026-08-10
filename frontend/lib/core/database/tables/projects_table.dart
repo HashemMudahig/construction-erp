@@ -32,7 +32,17 @@ class Projects extends Table {
 
   /// Budget amount in minor units (scaled INTEGER per budget_currency).
   /// ADR-005: never REAL. YER scale 0, SAR scale 2.
+  ///
+  /// Represents the **current** contract value after any amendments.
   IntColumn get budgetAmountMinor => integer()();
+
+  /// Original contract value in minor units, captured at creation time and
+  /// never overwritten by direct edits or amendments. Used to preserve the
+  /// original agreed value while [budgetAmountMinor] reflects the current
+  /// (possibly amended) value. Equal to [budgetAmountMinor] on creation.
+  IntColumn get originalContractValueMinor => integer().withDefault(
+        const Constant(0),
+      )();
 
   /// Currency code for budget: "YER" or "SAR".
   TextColumn get budgetCurrency => text().withLength(min: 3, max: 3)();

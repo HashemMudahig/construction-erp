@@ -1,7 +1,11 @@
 /// Project domain entity.
 ///
 /// Multi-currency fields (ADR-005):
-/// - [budgetAmountMinor]: budget in minor units (scaled INTEGER).
+/// - [budgetAmountMinor]: current contract value in minor units (scaled
+///   INTEGER). Reflects amendments.
+/// - [originalContractValueMinor]: the contract value captured at creation,
+///   never overwritten by direct edits or amendments. Equal to
+///   [budgetAmountMinor] on creation.
 /// - [budgetCurrency]: "YER" (scale 0) or "SAR" (scale 2).
 /// - [exchangePolicy]: "fixed" or "per_transaction".
 /// - [fixedExchangeRateScaled]: scale-6 INTEGER, null when not applicable.
@@ -12,6 +16,7 @@ class ProjectEntity {
     required this.name,
     this.description,
     required this.budgetAmountMinor,
+    required this.originalContractValueMinor,
     required this.budgetCurrency,
     this.exchangePolicy = 'per_transaction',
     this.fixedExchangeRateScaled,
@@ -25,7 +30,13 @@ class ProjectEntity {
   final String clientId;
   final String name;
   final String? description;
+
+  /// Current contract value (reflects amendments).
   final int budgetAmountMinor;
+
+  /// Original contract value captured at creation, never overwritten.
+  final int originalContractValueMinor;
+
   final String budgetCurrency;
   final String exchangePolicy;
   final int? fixedExchangeRateScaled;
@@ -39,6 +50,7 @@ class ProjectEntity {
     String? name,
     String? description,
     int? budgetAmountMinor,
+    int? originalContractValueMinor,
     String? budgetCurrency,
     String? exchangePolicy,
     int? fixedExchangeRateScaled,
@@ -52,6 +64,8 @@ class ProjectEntity {
         name: name ?? this.name,
         description: description ?? this.description,
         budgetAmountMinor: budgetAmountMinor ?? this.budgetAmountMinor,
+        originalContractValueMinor:
+            originalContractValueMinor ?? this.originalContractValueMinor,
         budgetCurrency: budgetCurrency ?? this.budgetCurrency,
         exchangePolicy: exchangePolicy ?? this.exchangePolicy,
         fixedExchangeRateScaled:

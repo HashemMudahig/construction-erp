@@ -93,6 +93,26 @@ class AppDatabase extends _$AppDatabase {
         if (from < 4) {
           await m.addColumn(appSettings, appSettings.localeCode);
         }
+        // Schema v5: Preserve the original contract value separately from the
+        // current (possibly amended) contract value. Backfill existing rows
+        // with their current budget so the original is not lost. Guarded for
+        // idempotency when restoring a backup whose file already has the
+        // column but whose user_version is older.
+        if (from < 5) {
+          final cols = await customSelect(
+            'PRAGMA table_info(projects)',
+            readsFrom: {projects},
+          ).get();
+          final hasOriginal = cols.any(
+              (r) => r.read<String>('name') == 'original_contract_value_minor');
+          if (!hasOriginal) {
+            await m.addColumn(projects, projects.originalContractValueMinor);
+          }
+          await customStatement(
+            'UPDATE projects SET original_contract_value_minor = budget_amount_minor '
+            'WHERE original_contract_value_minor = 0 OR original_contract_value_minor IS NULL',
+          );
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys on every connection.

@@ -1,5 +1,107 @@
 # Frontend History
 
+## 2026-08-09 — Financial Validation, Contract Safety, and Amendment Architecture
+
+- **Contract amendment architecture (schema v5):** Added
+  `originalContractValueMinor` to the projects table (additive migration with
+  backfill). `ProjectEntity` now exposes both `budgetAmountMinor` (current)
+  and `originalContractValueMinor` (immutable original). `getFinancialSummary`
+  reports `currentContractValue` and `originalContractValue` separately. A new
+  `amendContract` repository method changes the current value while preserving
+  the original.
+- **Contract value locking:** The project form disables the contract value
+  and currency fields once any payment, expense, or milestone exists, and
+  shows a localized lock notice. The repository enforces the lock server-side
+  by throwing `StateError` on direct budget updates when transactions exist.
+- **Cross-currency payment confirmation:** The payment form now shows a
+  financial alert dialog before recording a cross-currency payment, displaying
+  the original currency, amount, exchange rate, and the exact converted value
+  (integer arithmetic via `convertToCurrency`).
+- **Expense over-cash warning:** The expense form warns (non-blocking) when
+  adding an expense would make total expenses exceed received payments,
+  showing the received payments, projected total expenses, and expected
+  deficit. The user may continue because the contractor may finance the
+  project independently.
+- **Currency conversion fix:** Corrected `convertToCurrency` (YER→SAR) to use
+  the exact inverse of the SAR→YER formula
+  (`amount × sarFactor × rateFactor ÷ rate`), with round-half-up.
+- Validation: `flutter analyze --no-pub` reports no errors. Full suite
+  `flutter test --no-pub` — 491 tests passed (15 new). Schema v5 migration is
+  idempotent and backfills existing rows.
+
+## 2026-08-08 — Phase 2: Inline Client Creation from Project Form (UX)
+
+- Aligned the inline "add client" dialog to the client-terminology labels
+  (`إضافة عميل جديد`, `اسم العميل *`, `حفظ العميل`, `إلغاء`, validation
+  `اسم العميل مطلوب`) and added matching English keys. The dialog opens from
+  the project form's client dropdown; saving creates a client through the
+  existing `ClientRepositoryInterface` and auto-selects it.
+- Improved error handling: database/input failures now show a friendly
+  localized message (`فشل إنشاء العميل. يرجى المحاولة مرة أخرى.`) instead of
+  exposing raw exceptions to the user. No technical error text is rendered.
+- No schema, repository, routing, or backend changes. No Dio/API calls.
+  Validation: `flutter analyze --no-pub` clean of errors; full
+  `flutter test --no-pub --concurrency=1` suite passed (476 tests, +1 new
+  error-handling widget test). Existing clients/projects persistence tests
+  remain green.
+
+## 2026-08-08 — Unified Currency Display Formatting and Responsive Financial Rows
+
+- Added a unified presentation formatter `formatCurrencyDisplay` (and a
+  compact `formatCurrencyCompact`) in `core/database/finance/money_scale.dart`.
+  YER renders with no decimals and thousands separators (e.g. `400,000 YER`),
+  SAR with two decimals (e.g. `250,000.00 SAR`). Currency code is always a
+  suffix. Formatting is display-only; no `double` is used for money and no
+  exchange/calculation logic was touched.
+- Replaced four competing per-screen formatters (`formatDisplayAmount` in
+  project presentation, `_formatYer` in dashboard, `_formatYer`/`_formatMoney`
+  in reports, and manual `'... ${currency}'` interpolations in project
+  detail/list) with the unified formatter. `formatDisplayAmount` now
+  delegates to `formatCurrencyDisplay` for backward compatibility.
+- Fixed RenderFlex overflow in `project_detail_screen.dart`: wrapped the
+  `_ProfitCard` value `Text` in `Flexible` (maxLines 2, end-aligned, ellipsis
+  fallback), wrapped `_TotalBanner` label/value in `Flexible`, and made the
+  `_HeaderStat` label Row use `Expanded`+ellipsis. Verified at Redmi Note 8
+  Pro logical size (360x770) for both YER and SAR large values, in EN and
+  RTL Arabic, with no overflow exceptions.
+- Localized the dashboard monthly chart tooltip labels (ايرادات/مصروفات/
+  صافي التدفق → `context.tr` of `payments_received`/`expenses`/`net_cash_flow`)
+  and made the tooltip Row responsive. Reports `_FinancialProjectRow` switched
+  from a fixed `Row` to a `Wrap` so long names and currency values reflow.
+- Validation: `flutter analyze` reports no new errors (only pre-existing
+  info/warnings). Added 14 formatter unit tests and 8 detail-screen widget
+  tests covering the spec's four scenarios (400,000 YER; 250,000.00 SAR;
+  150,000,000 YER; small-screen RTL). Full suite: 475 tests passed.
+
+## 2026-08-08 — Inline Client Creation from Project Form
+
+- Added an "Add new project owner" option to the project form's client
+  dropdown. Selecting it opens an inline dialog (no navigation away) that
+  creates a client through the existing `ClientRepositoryInterface` and
+  auto-selects the new client in the project form.
+- New `AddClientDialog` widget under clients/presentation uses the existing
+  repository/provider pattern; UI never touches Drift/AppDatabase directly.
+  Validation (name required, email format) and UUID generation are preserved
+  by reusing the local repository.
+- Removed hardcoded English/Arabic strings from this workflow and added
+  localized keys for both locales (dialog title, buttons, fields, validation
+  messages). No schema, routing, backend, or package changes.
+- Validation: `flutter analyze` reports no new errors (only pre-existing
+  info/warnings). Added 9 widget tests covering existing selection, create +
+  auto-select, cancel, empty-name validation, Arabic rendering without
+  English mix, project validator, standalone dialog, and a local-DB render
+  regression. Full suite: 453 tests passed.
+
+## 2026-07-27 — Project Details Financial Summary and Localization
+
+- Corrected the tab terminology and negative net-cash-flow formatting.
+- Added textual cash-flow status and a separate safe cost-overrun warning.
+- Localized expense categories, transaction rows, payment methods, milestone
+  statuses, and create/edit dialogs while retaining canonical stored values.
+- Added reusable localization/presentation helpers and focused tests.
+- Validation: 444 Flutter tests and debug APK passed. Analyzer has no compile
+  errors but reports existing UI lint info/warnings.
+
 ## 2026-07-26 (Phase 13 — Release Validation)
 
 - Added deterministic startup recovery for canonical, rollback, and incoming

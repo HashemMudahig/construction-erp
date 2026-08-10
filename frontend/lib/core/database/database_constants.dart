@@ -8,7 +8,7 @@ library;
 ///
 /// Increment this when adding migrations. Each version must have a
 /// corresponding migration step in [AppDatabase].
-const int kSchemaVersion = 4;
+const int kSchemaVersion = 5;
 
 /// SQLite database file name.
 const String kDatabaseFileName = 'construction_erp.db';

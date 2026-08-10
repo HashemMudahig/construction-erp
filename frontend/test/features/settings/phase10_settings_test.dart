@@ -201,7 +201,7 @@ void main() {
     final settings = await _repository(db).loadSettings();
     expect(settings.defaultSarToYerRateScaled, 415000000);
     expect(settings.localeCode, 'en');
-    expect(db.schemaVersion, 4);
+    expect(db.schemaVersion, 5);
     await db.close();
   });
 
@@ -309,7 +309,11 @@ void main() {
       paymentDate: '2026-02-01',
       method: 'cash',
     );
-    expect(yer.exchangeRateScaled, kIdentityExchangeRate);
+    // YER payment against a SAR contract is cross-currency: the YER/SAR rate
+    // is resolved from settings (default 410000000) so the contract-currency
+    // aggregation can convert YER→SAR on read. The YER snapshot stays equal
+    // to the original YER amount (identity for YER reporting).
+    expect(yer.exchangeRateScaled, 410000000);
     expect(yer.convertedYerAmount, 100);
     expect(manual.exchangeRateScaled, 430000000);
     expect(manual.rateSource, 'manual');

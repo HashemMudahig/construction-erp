@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 
 import '../../../core/database/finance/exchange_rate.dart';
 import '../../backup/presentation/backup_restore_section.dart';
@@ -25,18 +26,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final settings = ref.watch(settingsProvider);
+        final settings = ref.watch(settingsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(isArabic ? 'الإعدادات' : 'Settings'),
+        title: Text(context.tr('settings')),
       ),
       body: SafeArea(
         child: settings.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _LocalError(
             message: error.toString(),
-            retryLabel: isArabic ? 'إعادة المحاولة' : 'Retry',
+            retryLabel: context.tr('retry'),
             onRetry: () => ref.read(settingsProvider.notifier).retry(),
           ),
           data: (value) {
@@ -48,15 +48,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 _SettingsCard(
-                  title: isArabic ? 'العملة' : 'Currency',
+                  title: context.tr('currency_label'),
                   icon: Icons.currency_exchange,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        isArabic
-                            ? 'سعر الصرف الافتراضي: ريال يمني لكل 1 ريال سعودي'
-                            : 'Default exchange rate: YER per 1 SAR',
+                        context.tr('default_exchange_rate_desc'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -64,10 +62,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         decoration: InputDecoration(
-                          labelText: isArabic ? 'YER لكل SAR' : 'YER per SAR',
-                          helperText: isArabic
-                              ? 'يُستخدم للمعاملات الجديدة فقط'
-                              : 'Used only for new transactions',
+                          labelText: context.tr('yer_per_sar'),
+                          helperText: context.tr('used_for_new_transactions_only'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -83,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 )
                               : const Icon(Icons.save_outlined),
-                          label: Text(isArabic ? 'حفظ' : 'Save'),
+                          label: Text(context.tr('save')),
                         ),
                       ),
                     ],
@@ -91,7 +87,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 _SettingsCard(
-                  title: isArabic ? 'اللغة' : 'Language',
+                  title: context.tr('language'),
                   icon: Icons.language,
                   child: SegmentedButton<String>(
                     segments: const [
@@ -105,12 +101,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 _SettingsCard(
-                  title: isArabic ? 'الأمان المحلي' : 'Local security',
+                  title: context.tr('local_security'),
                   icon: Icons.phonelink_lock_outlined,
                   child: Text(
-                    isArabic
-                        ? 'يحفظ التطبيق البيانات محلياً لمستخدم جهاز واحد. الوصول الفعلي إلى الجهاز يعني إمكانية الوصول إلى بيانات التطبيق وفق حماية نظام التشغيل. لا يوجد PIN أو بصمة أو تشفير لقاعدة البيانات.'
-                        : 'The app stores data locally for one device user. Physical device access implies access to app data subject to operating-system protections. No PIN, biometrics, or database encryption is implemented.',
+                    context.tr('local_security_desc'),
                   ),
                 ),
                 if (_message != null) ...[
@@ -119,7 +113,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _message!,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: _message == (isArabic ? 'تم الحفظ' : 'Saved')
+                      color: _message == (context.tr('saved'))
                           ? Theme.of(context).colorScheme.primary
                           : Theme.of(context).colorScheme.error,
                     ),
@@ -144,10 +138,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .read(settingsProvider.notifier)
         .updateRate(_rateController.text);
     if (!mounted) return;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    setState(() {
+        setState(() {
       _saving = false;
-      _message = error ?? (isArabic ? 'تم الحفظ' : 'Saved');
+      _message = error ?? (context.tr('saved'));
     });
   }
 

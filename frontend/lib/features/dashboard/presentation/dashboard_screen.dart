@@ -7,11 +7,11 @@ import 'package:intl/intl.dart';
 import 'dashboard_providers.dart';
 import '../domain/dashboard_models.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/database/finance/money_scale.dart';
 
-String _formatYer(int amount, String languageCode) {
-  // Preserve the established accounting display contract: Western digits are
-  // used for YER amounts in both UI languages.
-  return NumberFormat.decimalPattern('en').format(amount);
+String _formatYerAmount(int amount) {
+  final full = formatCurrencyDisplay(amount, 'YER');
+  return full.substring(0, full.length - 4); // strip ' YER'
 }
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -68,7 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             context.tr('welcome_engineer'),
             style: const TextStyle(
@@ -90,7 +90,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
       ],
     );
   }
@@ -98,7 +98,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildActionButton(IconData icon,
       {bool badge = false, VoidCallback? onPressed}) {
     return Container(
-      margin: const EdgeInsets.only(left: 8),
+      margin: EdgeInsets.only(left: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
@@ -132,8 +132,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -153,7 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
       child: summaryAsync.when(
-        loading: () => const SizedBox(
+        loading: () => SizedBox(
             height: 120,
             child:
                 Center(child: CircularProgressIndicator(color: Colors.white))),
@@ -169,20 +169,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.trending_up,
+                    child: Icon(Icons.trending_up,
                         color: Colors.white, size: 22),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      locale.languageCode == 'ar'
-                          ? 'صافي التدفق النقدي'
-                          : 'Net cash flow',
+                      context.tr('net_cash_flow'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -192,14 +190,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Text(
-                _formatYer(s.netCashFlowYer, locale.languageCode),
+                _formatYerAmount(s.netCashFlowYer),
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                   fontSize: 36,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
                 'YER',
@@ -207,7 +207,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               SizedBox(
                 height: 70,
                 child: CustomPaint(
@@ -225,7 +225,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildKpiRow(BuildContext context, AsyncValue<dynamic> summaryAsync) {
     final locale = ref.watch(localeProvider);
     return summaryAsync.when(
-      loading: () => const SizedBox(
+      loading: () => SizedBox(
           height: 100, child: Center(child: CircularProgressIndicator())),
       error: (_, __) => SizedBox(
           height: 100,
@@ -272,9 +272,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           height: 130,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16),
             itemCount: kpis.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, __) => SizedBox(width: 12),
             itemBuilder: (context, i) => _KpiCard(kpi: kpis[i]),
           ),
         );
@@ -287,8 +287,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -307,9 +307,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               Expanded(
                 child: Text(
-                  locale.languageCode == 'ar'
-                      ? 'نظرة عامة على المشاريع'
-                      : 'Project overview',
+                  context.tr('project_overview'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -324,9 +322,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           projectsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => Center(child: CircularProgressIndicator()),
             error: (_, __) => Text(locale.languageCode == 'ar'
                 ? 'خطأ في التحميل'
                 : 'Error loading'),
@@ -338,7 +336,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: projects.take(4).length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => SizedBox(height: 12),
                     itemBuilder: (context, i) =>
                         _ActivityCard(project: projects[i], theme: theme),
                   ),
@@ -353,7 +351,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Column(
       children: [
         _buildFinancialSummary(context),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _buildMonthlyChart(context, financeAsync),
       ],
     );
@@ -362,9 +360,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildFinancialSummary(BuildContext context) {
     final locale = ref.watch(localeProvider);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: 16),
       child: ref.watch(dashboardSummaryProvider).when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => Center(child: CircularProgressIndicator()),
             error: (_, __) => Text(locale.languageCode == 'ar'
                 ? 'تعذر قراءة البيانات المحلية'
                 : 'Unable to read local data'),
@@ -377,9 +375,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   SizedBox(
                       width: width,
                       child: _FinancialCard(
-                        title: context.tr('total_expenses'),
-                        value: _formatYer(
-                            summary.totalExpensesYer, locale.languageCode),
+                        title: context.tr('expenses'),
+                        value: _formatYerAmount(
+                            summary.totalExpensesYer),
                         currency: 'YER',
                         trend: '',
                         trendUp: false,
@@ -389,9 +387,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   SizedBox(
                       width: width,
                       child: _FinancialCard(
-                        title: context.tr('total_collected'),
-                        value: _formatYer(
-                            summary.totalPaymentsYer, locale.languageCode),
+                        title: context.tr('payments_received'),
+                        value: _formatYerAmount(
+                            summary.totalPaymentsYer),
                         currency: 'YER',
                         trend: '',
                         trendUp: true,
@@ -401,11 +399,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   SizedBox(
                       width: width,
                       child: _FinancialCard(
-                        title: locale.languageCode == 'ar'
-                            ? 'صافي التدفق النقدي'
-                            : 'Net cash flow',
-                        value: _formatYer(
-                            summary.netCashFlowYer, locale.languageCode),
+                        title: context.tr('net_cash_flow'),
+                        value: _formatYerAmount(
+                            summary.netCashFlowYer),
                         currency: 'YER',
                         trend: '',
                         trendUp: summary.netCashFlowYer >= 0,
@@ -426,8 +422,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -446,32 +442,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                locale.languageCode == 'ar'
-                    ? 'الأداء الشهري ٢٠٢٦'
-                    : 'Monthly Performance 2026',
+                context.tr('monthly_performance'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF1E293B),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 12,
                 runSpacing: 4,
                 children: [
                   _buildLegendDot(const Color(0xFF3B82F6),
-                      locale.languageCode == 'ar' ? 'إيرادات' : 'Revenue'),
+                      context.tr('revenue')),
                   _buildLegendDot(const Color(0xFFEF4444),
-                      locale.languageCode == 'ar' ? 'مصروفات' : 'Expenses'),
+                      context.tr('expenses')),
                   _buildLegendDot(const Color(0xFF10B981),
-                      locale.languageCode == 'ar' ? 'أرباح' : 'Profit'),
+                      context.tr('profit')),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           financeAsync.when(
-            loading: () => const SizedBox(
+            loading: () => SizedBox(
                 height: 200, child: Center(child: CircularProgressIndicator())),
             error: (_, __) => SizedBox(
                 height: 200,
@@ -500,7 +494,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             borderRadius: BorderRadius.circular(5),
           ),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
@@ -520,13 +514,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onTap: () => context.go('/reports'),
       ),
       _QuickActionData(
-        title: locale.languageCode == 'ar' ? 'دفعة' : 'Payment',
+        title: context.tr('payment'),
         icon: Icons.payment,
         color: const Color(0xFF10B981),
         onTap: () {},
       ),
       _QuickActionData(
-        title: locale.languageCode == 'ar' ? 'مصروف' : 'Expense',
+        title: context.tr('expense'),
         icon: Icons.receipt_long,
         color: const Color(0xFFEF4444),
         onTap: () {},
@@ -540,7 +534,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ];
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -551,13 +545,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               color: const Color(0xFF1E293B),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             height: 132,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: actions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) => SizedBox(width: 12),
               itemBuilder: (context, i) => _QuickActionCard(action: actions[i]),
             ),
           ),
@@ -591,7 +585,7 @@ class _KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 140,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -611,7 +605,7 @@ class _KpiCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: kpi.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -619,7 +613,7 @@ class _KpiCard extends StatelessWidget {
                 child: Icon(kpi.icon, color: kpi.color, size: 18),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: kpi.trendUp
                       ? const Color(0xFFDCFCE7)
@@ -636,7 +630,7 @@ class _KpiCard extends StatelessWidget {
                           : const Color(0xFF991B1B),
                       size: 10,
                     ),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2),
                     Text(
                       kpi.trend,
                       style: const TextStyle(
@@ -649,7 +643,7 @@ class _KpiCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
             kpi.value,
             style: const TextStyle(
@@ -659,7 +653,7 @@ class _KpiCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(
             kpi.title,
             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -680,7 +674,7 @@ class _ActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
@@ -694,9 +688,9 @@ class _ActivityCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.folder, color: Colors.deepOrange, size: 22),
+            child: Icon(Icons.folder, color: Colors.deepOrange, size: 22),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,7 +702,7 @@ class _ActivityCard extends StatelessWidget {
                     color: const Color(0xFF1E293B),
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   project.clientName,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -719,13 +713,13 @@ class _ActivityCard extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFDCFCE7),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text(
-              'مكتمل',
+            child: Text(
+              context.tr('status_completed'),
               style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF166534),
@@ -760,7 +754,7 @@ class _FinancialCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -779,7 +773,7 @@ class _FinancialCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -787,7 +781,7 @@ class _FinancialCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 20),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: trendUp
                       ? const Color(0xFFDCFCE7)
@@ -804,7 +798,7 @@ class _FinancialCard extends StatelessWidget {
                           : const Color(0xFF991B1B),
                       size: 12,
                     ),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2),
                     Text(
                       trend,
                       style: const TextStyle(
@@ -817,7 +811,7 @@ class _FinancialCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
@@ -827,7 +821,7 @@ class _FinancialCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2),
           Text(
             '$currency  $title',
             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -863,7 +857,7 @@ class _QuickActionCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: 100,
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -879,14 +873,14 @@ class _QuickActionCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: action.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(action.icon, color: action.color, size: 28),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Text(
               action.title,
               style: const TextStyle(
@@ -1004,7 +998,7 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
       left: MediaQuery.of(context).size.width / 2 - 60,
       top: 20,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -1027,15 +1021,21 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
                   fontSize: 14,
                   color: Color(0xFF1E293B)),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             _buildTooltipRow(
-                const Color(0xFF3B82F6), 'ايرادات', point.totalPaymentsYer),
-            const SizedBox(height: 4),
+                const Color(0xFF3B82F6),
+                context.tr('payments_received'),
+                point.totalPaymentsYer),
+            SizedBox(height: 4),
             _buildTooltipRow(
-                const Color(0xFFEF4444), 'مصروفات', point.totalExpensesYer),
-            const SizedBox(height: 4),
+                const Color(0xFFEF4444),
+                context.tr('expenses'),
+                point.totalExpensesYer),
+            SizedBox(height: 4),
             _buildTooltipRow(
-                const Color(0xFF10B981), 'صافي التدفق', point.netCashFlowYer),
+                const Color(0xFF10B981),
+                context.tr('net_cash_flow'),
+                point.netCashFlowYer),
           ],
         ),
       ),
@@ -1052,14 +1052,18 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
           decoration: BoxDecoration(
               color: color, borderRadius: BorderRadius.circular(4)),
         ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+        SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Text(
-          NumberFormat.decimalPattern().format(value),
+          formatCurrencyDisplay(value, 'YER'),
           style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,

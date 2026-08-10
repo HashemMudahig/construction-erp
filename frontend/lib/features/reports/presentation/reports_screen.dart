@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/database/finance/money_scale.dart';
 import '../../projects/presentation/project_providers.dart';
 import 'report_providers.dart';
 
@@ -598,15 +599,15 @@ class _ProjectStatusResults extends StatelessWidget {
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.7)),
                       _MiniStat(
-                          label: context.tr('total_payments'),
+                          label: context.tr('payments_received'),
                           value: _formatYer(item.totalPaymentsYer),
                           color: Colors.green),
                       _MiniStat(
-                          label: context.tr('total_expenses'),
+                          label: context.tr('expenses'),
                           value: _formatYer(item.totalExpensesYer),
                           color: Colors.red),
                       _MiniStat(
-                        label: _netCashFlowLabel(context),
+                        label: context.tr('net_cash_flow'),
                         value: _formatYer(item.netCashFlowYer),
                         color:
                             item.netCashFlowYer < 0 ? Colors.red : Colors.teal,
@@ -647,21 +648,21 @@ class _FinancialSummaryResults extends StatelessWidget {
           children: [
             Expanded(
                 child: _KpiCard(
-                    label: context.tr('income'),
+                    label: context.tr('payments_received'),
                     value: _formatYer(data.totalPaymentsYer),
                     color: Colors.green,
                     icon: Icons.trending_up)),
             const SizedBox(width: 10),
             Expanded(
                 child: _KpiCard(
-                    label: context.tr('total_expenses'),
+                    label: context.tr('expenses'),
                     value: _formatYer(data.totalExpensesYer),
                     color: Colors.red,
                     icon: Icons.trending_down)),
             const SizedBox(width: 10),
             Expanded(
                 child: _KpiCard(
-              label: _netCashFlowLabel(context),
+              label: context.tr('net_cash_flow'),
               value: _formatYer(data.netCashFlowYer),
               color: data.netCashFlowYer >= 0 ? Colors.teal : Colors.red,
               icon: data.netCashFlowYer >= 0
@@ -699,23 +700,29 @@ class _FinancialProjectRow extends StatelessWidget {
         border: Border.all(
             color: theme.colorScheme.outline.withValues(alpha: 0.12)),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
         children: [
-          Expanded(
-              child: Text(project.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold))),
+          SizedBox(
+            width: (MediaQuery.of(context).size.width - 60).clamp(80.0, 180.0),
+            child: Text(project.name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ),
           _MiniStat(
-              label: context.tr('income'),
+              label: context.tr('payments_received'),
               value: _formatYer(project.totalPaymentsYer),
               color: Colors.green),
-          const SizedBox(width: 16),
           _MiniStat(
-              label: context.tr('total_expenses'),
+              label: context.tr('expenses'),
               value: _formatYer(project.totalExpensesYer),
               color: Colors.red),
-          const SizedBox(width: 16),
           _MiniStat(
-            label: _netCashFlowLabel(context),
+            label: context.tr('net_cash_flow'),
             value: _formatYer(project.netCashFlowYer),
             color: isPositive ? Colors.teal : Colors.red,
           ),
@@ -988,17 +995,10 @@ class _ErrorView extends StatelessWidget {
       );
 }
 
-String _formatYer(int value) => '$value YER';
+String _formatYer(int value) => formatCurrencyDisplay(value, 'YER');
 
 String _formatMoney(int minorUnits, String currency) {
-  if (currency == 'SAR') {
-    final negative = minorUnits < 0;
-    final absolute = minorUnits.abs();
-    final formatted =
-        '${absolute ~/ 100}.${(absolute % 100).toString().padLeft(2, '0')}';
-    return '${negative ? '-' : ''}$formatted SAR';
-  }
-  return '$minorUnits $currency';
+  return formatCurrencyDisplay(minorUnits, currency);
 }
 
 String _formatPercent(int basisPoints) =>

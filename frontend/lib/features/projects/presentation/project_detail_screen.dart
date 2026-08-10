@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/localized_business_labels.dart';
 import '../../expenses/domain/expense_entity.dart';
 import '../../expenses/presentation/expense_form_dialog.dart';
 import '../../expenses/presentation/expense_providers.dart';
@@ -13,6 +14,10 @@ import '../../payments/domain/payment_entity.dart';
 import '../../payments/presentation/payment_form_dialog.dart';
 import '../../payments/presentation/payment_providers.dart';
 import 'project_providers.dart';
+import '../domain/project_repository_interface.dart';
+import 'project_financial_presentation.dart';
+import '../../../core/database/finance/money_scale.dart';
+import '../../../core/database/finance/exchange_rate.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   const ProjectDetailScreen({required this.id, super.key});
@@ -150,9 +155,10 @@ class _ProjectDetailBody extends ConsumerWidget {
                   Row(
                     children: [
                       _HeaderStat(
-                        label: context.tr('budget'),
-                        value:
-                            '${project.budgetAmountMinor} ${project.budgetCurrency}',
+                        label: context.tr('contract_value'),
+                        value: formatCurrencyDisplay(
+                            project.budgetAmountMinor,
+                            project.budgetCurrency),
                         icon: Icons.account_balance_wallet_outlined,
                       ),
                       const SizedBox(width: 16),
@@ -188,7 +194,7 @@ class _ProjectDetailBody extends ConsumerWidget {
           TabBar(
             isScrollable: false,
             tabs: [
-              Tab(text: context.tr('profitability')),
+              Tab(text: context.tr('financial_summary_tab')),
               Tab(text: context.tr('tab_milestones')),
               Tab(text: context.tr('tab_payments')),
               Tab(text: context.tr('tab_expenses')),
@@ -197,7 +203,7 @@ class _ProjectDetailBody extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: [
-                _ProfitabilityTab(projectId: projectId),
+                _ProfitabilityTab(projectId: projectId, project: project),
                 _MilestonesTab(projectId: projectId),
                 _PaymentsTab(projectId: projectId),
                 _ExpensesTab(projectId: projectId),
@@ -232,8 +238,13 @@ class _HeaderStat extends StatelessWidget {
             children: [
               Icon(icon, color: Colors.white60, size: 14),
               const SizedBox(width: 4),
-              Text(label,
-                  style: const TextStyle(color: Colors.white60, fontSize: 11)),
+              Expanded(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white60, fontSize: 11)),
+              ),
             ],
           ),
           const SizedBox(height: 2),
@@ -252,47 +263,102 @@ class _HeaderStat extends StatelessWidget {
 // ─── Profitability Tab ────────────────────────────────────────────────────────
 
 class _ProfitabilityTab extends ConsumerWidget {
-  const _ProfitabilityTab({required this.projectId});
+  const _ProfitabilityTab({required this.projectId, required this.project});
   final String projectId;
+  final dynamic project;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profitAsync = ref.watch(projectFinancialSummaryProvider(projectId));
+
     return profitAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('${context.tr('error')} $e')),
       data: (data) {
+        // Remaining contract value and net cash flow are computed in the
+        // contract currency by the repository, using each row's immutable
+        // exchange-rate snapshot. The legacy YER balance is still used for
+        // the cash-flow status notice (surplus/deficit).
+        final remainingContract = data.remainingContractValue;
+        final isOverpayment = remainingContract < 0;
+        final netCashFlow = data.netCashFlow;
+
+        final cashPresentation = cashFlowPresentation(netCashFlow);
+        final cashDetail = context
+            .tr(cashPresentation.detailKey)
+            .replaceAll('{amount}',
+                formatDisplayAmount(netCashFlow.abs(), data.contractCurrency));
+        final costOverrun = calculateCostOverrun(
+          contractValueYer: data.contractCurrency == 'YER'
+              ? (project.budgetAmountMinor as int)
+              : null,
+          totalExpensesYer: data.contractCurrency == 'YER'
+              ? data.totalExpensesContractCurrency
+              : null,
+        );
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
             _ProfitCard(
-              label: context.tr('total_payments'),
-              value: '${data.totalPaymentsYer} YER',
+              label: context.tr('contract_value'),
+              value: formatDisplayAmount(
+                  project.budgetAmountMinor, project.budgetCurrency),
+              color: Colors.blueGrey,
+              icon: Icons.assignment_outlined,
+            ),
+            const SizedBox(height: 12),
+            _ProfitCard(
+              label: context.tr('payments_received'),
+              value: _groupedCurrencyDisplay(data.paymentsByCurrency),
               color: Colors.green,
               icon: Icons.payments_outlined,
             ),
             const SizedBox(height: 12),
             _ProfitCard(
-              label: context.tr('total_expenses'),
-              value: '${data.totalExpensesYer} YER',
+              label: context.tr('expenses'),
+              value: _groupedCurrencyDisplay(data.expensesByCurrency),
               color: Colors.red,
               icon: Icons.receipt_long_outlined,
             ),
             const SizedBox(height: 12),
             _ProfitCard(
-              label: context.tr('balance'),
-              value: '${data.balance} YER',
-              color: Colors.blue,
+              label: context.tr('remaining_contract_value'),
+              value: formatDisplayAmount(
+                  remainingContract, data.contractCurrency),
+              color: isOverpayment ? Colors.purple : Colors.blue,
+              icon: Icons.account_balance_wallet_outlined,
+            ),
+            const SizedBox(height: 12),
+            _ProfitCard(
+              label: context.tr('net_cash_flow'),
+              value:
+                  formatDisplayAmount(netCashFlow, data.contractCurrency),
+              color: netCashFlow >= 0 ? Colors.teal : Colors.deepOrange,
               icon: Icons.account_balance_outlined,
               isLarge: true,
             ),
             const SizedBox(height: 12),
-            _ProfitCard(
-              label: context.tr('profit_margin'),
-              value: '${(data.profitMargin * 100).toStringAsFixed(1)}%',
-              color: Colors.orange,
-              icon: Icons.trending_up,
+            _FinancialNotice(
+              title: context.tr(cashPresentation.statusKey),
+              message: cashDetail,
+              color: netCashFlow < 0 ? Colors.deepOrange : Colors.teal,
+              icon: netCashFlow < 0
+                  ? Icons.trending_down
+                  : netCashFlow > 0
+                      ? Icons.trending_up
+                      : Icons.horizontal_rule,
             ),
+            if (costOverrun != null && costOverrun > 0) ...[
+              const SizedBox(height: 12),
+              _FinancialNotice(
+                title: context.tr('cost_overrun'),
+                message: context.tr('cost_overrun_detail').replaceAll(
+                    '{amount}', formatDisplayAmount(costOverrun, 'YER')),
+                color: Colors.red,
+                icon: Icons.warning_amber_rounded,
+              ),
+            ],
           ],
         );
       },
@@ -324,6 +390,7 @@ class _ProfitCard extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(10),
@@ -341,12 +408,64 @@ class _ProfitCard extends StatelessWidget {
                   TextStyle(color: color.withValues(alpha: 0.8), fontSize: 14),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: isLarge ? 22 : 18,
-              fontWeight: FontWeight.bold,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: isLarge ? 22 : 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinancialNotice extends StatelessWidget {
+  const _FinancialNotice({
+    required this.title,
+    required this.message,
+    required this.color,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(message),
+              ],
             ),
           ),
         ],
@@ -419,6 +538,7 @@ class _MilestoneCard extends StatelessWidget {
     if (milestone.status == 'overdue') localStatus = isAr ? 'متأخر' : 'Overdue';
     if (milestone.status == 'pending') localStatus = isAr ? 'معلق' : 'Pending';
 
+    localStatus = localizedMilestoneStatus(context, milestone.status);
     return Card(
       child: ListTile(
         leading: _StatusIcon(status: milestone.status),
@@ -493,7 +613,7 @@ class _PaymentsTab extends ConsumerWidget {
               children: [
                 _TotalBanner(
                     label: context.tr('total'),
-                    value: '$totalYer YER',
+                    value: formatCurrencyDisplay(totalYer, 'YER'),
                     color: Colors.green),
                 Expanded(
                   child: ListView.separated(
@@ -503,9 +623,10 @@ class _PaymentsTab extends ConsumerWidget {
                     itemBuilder: (context, i) {
                       final p = payments[i];
                       return _TransactionCard(
-                        amount:
-                            '${p.originalAmountMinor} ${p.originalCurrency}',
-                        subtitle: '${_fmtDate(p.paymentDate)}  •  ${p.method}',
+                        amount: formatDisplayAmount(
+                            p.originalAmountMinor, p.originalCurrency),
+                        subtitle:
+                            '${_fmtDate(p.paymentDate)}  •  ${localizedPaymentMethod(context, p.method)}',
                         icon: Icons.payments_outlined,
                         color: Colors.green,
                         onTap: () =>
@@ -556,7 +677,7 @@ class _ExpensesTab extends ConsumerWidget {
               children: [
                 _TotalBanner(
                     label: context.tr('total'),
-                    value: '$totalYer YER',
+                    value: formatCurrencyDisplay(totalYer, 'YER'),
                     color: Colors.red),
                 Expanded(
                   child: ListView.separated(
@@ -566,10 +687,10 @@ class _ExpensesTab extends ConsumerWidget {
                     itemBuilder: (context, i) {
                       final e = expenses[i];
                       return _TransactionCard(
-                        amount:
-                            '${e.originalAmountMinor} ${e.originalCurrency}',
+                        amount: formatDisplayAmount(
+                            e.originalAmountMinor, e.originalCurrency),
                         subtitle:
-                            '${_fmtDate(e.expenseDate)}  •  ${e.category}',
+                            '${_fmtDate(e.expenseDate)}  •  ${localizedExpenseCategory(context, e.category)}',
                         icon: Icons.receipt_outlined,
                         color: Colors.red,
                         onTap: () =>
@@ -617,11 +738,24 @@ class _TotalBanner extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-            Text(value,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 18)),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      TextStyle(color: color, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18)),
+            ),
           ],
         ),
       );
@@ -709,6 +843,21 @@ void _showExpenseForm(BuildContext context, WidgetRef ref, String projectId,
 
 String _fmtDate(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Renders a grouped multi-currency breakdown as a single display string,
+/// one line per currency, e.g. "SAR 238,095.00\nYER 15,000,000".
+///
+/// When only one currency is present, returns that single formatted line.
+/// Never mixes currencies on the same line.
+String _groupedCurrencyDisplay(List<CurrencyBreakdownEntry> entries) {
+  if (entries.isEmpty) return '0';
+  if (entries.length == 1) {
+    return formatDisplayAmount(entries.first.amountMinor, entries.first.currency);
+  }
+  return entries
+      .map((e) => formatDisplayAmount(e.amountMinor, e.currency))
+      .join('\n');
+}
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});

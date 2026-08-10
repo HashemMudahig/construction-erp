@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/local_project_repository.dart';
+import '../data/local_project_repository.dart' hide ProjectFinancialSummary;
 import '../domain/project_entity.dart';
 import '../domain/project_repository_interface.dart';
 import '../../dashboard/presentation/dashboard_providers.dart';

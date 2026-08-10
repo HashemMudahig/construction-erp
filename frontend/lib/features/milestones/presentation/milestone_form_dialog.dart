@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/localized_business_labels.dart';
 import '../domain/milestone_entity.dart';
 import 'milestone_providers.dart';
 
@@ -87,7 +89,8 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit milestone' : 'New milestone'),
+      title: Text(
+          context.tr(_isEdit ? 'edit_milestone_title' : 'new_milestone_title')),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -96,15 +99,17 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
             children: [
               TextFormField(
                 controller: _title,
-                decoration: const InputDecoration(labelText: 'Title *'),
+                decoration: InputDecoration(
+                    labelText: context.tr('milestone_title_required')),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Title is required'
+                    ? context.tr('err_milestone_title_required')
                     : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _description,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(
+                    labelText: context.tr('milestone_description')),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
@@ -119,29 +124,29 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
                   if (picked != null) setState(() => _dueDate = picked);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Due date *'),
+                  decoration: InputDecoration(
+                      labelText: context.tr('milestone_due_date')),
                   child: Text(_dueDate == null
-                      ? 'Select date'
+                      ? context.tr('select_date')
                       : '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}'),
                 ),
               ),
               if (_dueDate == null)
-                const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text('Due date is required',
-                        style: TextStyle(color: Colors.red, fontSize: 12))),
+                Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(context.tr('due_date_required'),
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 12))),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _status,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: const [
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(
-                      value: 'in_progress', child: Text('In progress')),
-                  DropdownMenuItem(
-                      value: 'completed', child: Text('Completed')),
-                  DropdownMenuItem(value: 'overdue', child: Text('Overdue')),
-                ],
+                decoration:
+                    InputDecoration(labelText: context.tr('milestone_status')),
+                items: const ['pending', 'in_progress', 'completed', 'overdue']
+                    .map((status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(localizedMilestoneStatus(context, status))))
+                    .toList(),
                 onChanged: (v) => setState(() => _status = v ?? 'pending'),
               ),
             ],
@@ -151,7 +156,7 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
+            child: Text(context.tr('cancel'))),
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
@@ -159,7 +164,7 @@ class _MilestoneFormDialogState extends ConsumerState<MilestoneFormDialog> {
                   height: 20,
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(_isEdit ? 'Update' : 'Create'),
+              : Text(context.tr(_isEdit ? 'update' : 'create_milestone')),
         ),
       ],
     );
