@@ -10,8 +10,27 @@ import '../../../core/database/finance/exchange_rate.dart';
 import '../../../core/database/finance/money_scale.dart';
 import '../../projects/presentation/project_providers.dart';
 import '../../settings/presentation/settings_provider.dart';
+import '../../transfers/presentation/currency_transfer_dialog.dart';
+import '../../transfers/presentation/currency_transfer_providers.dart';
+import '../../transfers/presentation/insufficient_balance_dialog.dart';
 import '../domain/expense_entity.dart';
 import 'expense_providers.dart';
+
+/// Outcome of the per-currency wallet balance check performed before
+/// recording a new expense.
+enum _BalanceCheckOutcome {
+  /// The matching wallet has enough balance; proceed.
+  sufficient,
+
+  /// The user chose to cancel the expense.
+  cancel,
+
+  /// The user chose to record external funding; proceed with the expense.
+  externalFunding,
+
+  /// The user chose to convert currency (top up the wallet via transfer).
+  convertCurrency,
+}
 
 class ExpenseFormDialog extends ConsumerStatefulWidget {
   const ExpenseFormDialog({required this.projectId, this.expense, super.key});
@@ -88,14 +107,26 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate() || _expenseDate == null) return;
-    // Over-cash warning: if adding this expense will make total expenses
-    // exceed received payments, warn the user (non-blocking — they may
-    // continue because the contractor may finance the project).
+    // Per-currency wallet balance check: the expense is paid from the
+    // matching currency wallet only. If the wallet has insufficient balance,
+    // show an Arabic warning dialog offering to convert currency, use
+    // external funding, or cancel. Never automatically deduct from another
+    // currency.
     if (!_isEdit) {
-      final overCash = await _checkExpenseOverCash();
-      if (overCash != null) {
-        final confirmed = await _showOverCashWarning(overCash);
-        if (confirmed != true) return;
+      final choice = await _checkInsufficientCurrencyBalance();
+      switch (choice) {
+        case _BalanceCheckOutcome.sufficient:
+          break;
+        case _BalanceCheckOutcome.cancel:
+          return;
+        case _BalanceCheckOutcome.externalFunding:
+          break; // proceed, contractor finances externally
+        case _BalanceCheckOutcome.convertCurrency:
+          final transferred = await _openTransferDialog();
+          if (!transferred) return;
+          // Re-check after the transfer; if still insufficient, let the
+          // repository persist (the user is in control).
+          break;
       }
     }
     setState(() => _saving = true);
@@ -176,100 +207,64 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
     }
   }
 
-  /// Returns the over-cash breakdown if adding this expense would make total
-  /// expenses exceed received payments, or `null` if there is no over-cash
-  /// situation or the inputs are invalid.
-  Future<_OverCashInfo?> _checkExpenseOverCash() async {
+  /// Checks the matching-currency wallet balance for the pending expense.
+  ///
+  /// The expense currency wallet is the only wallet consulted. If the
+  /// wallet has insufficient balance, an Arabic warning dialog is shown
+  /// offering three options (convert currency / external funding / cancel).
+  /// Never automatically deducts from another currency.
+  Future<_BalanceCheckOutcome> _checkInsufficientCurrencyBalance() async {
     final amountStr = _amount.text.trim();
-    final rateStr = _rate.text.trim();
     final amountDec = Decimal.tryParse(amountStr);
-    if (amountDec == null || amountDec <= Decimal.zero) return null;
+    if (amountDec == null || amountDec <= Decimal.zero) {
+      return _BalanceCheckOutcome.sufficient;
+    }
     int amountMinor;
-    int? rateScaled;
     try {
       amountMinor = toMinorUnits(amountDec, _currency);
-      if (_needsRate) {
-        final rateDec = Decimal.tryParse(rateStr);
-        if (rateDec == null || rateDec <= Decimal.zero) return null;
-        rateScaled = toScaledExchangeRate(rateDec);
-      }
     } catch (_) {
-      return null;
+      return _BalanceCheckOutcome.sufficient;
     }
     try {
-      final summary = await ref
-          .read(projectRepositoryProvider)
-          .getFinancialSummary(widget.projectId);
-      // Compare in YER (the canonical converted snapshot) for consistency.
-      final newExpenseYer = _currency == kCurrencyYer
-          ? amountMinor
-          : convertToYer(amountMinor, kCurrencySar, rateScaled!);
-      final totalExpensesAfter = summary.totalExpensesYer + newExpenseYer;
-      if (totalExpensesAfter > summary.totalPaymentsYer) {
-        return _OverCashInfo(
-          receivedPayments: summary.totalPaymentsYer,
-          totalExpensesAfter: totalExpensesAfter,
-          deficit: totalExpensesAfter - summary.totalPaymentsYer,
-        );
+      final balances = await ref
+          .read(projectWalletBalancesProvider(widget.projectId).future);
+      final walletBalance = balances.balanceFor(_currency);
+      if (walletBalance >= amountMinor) {
+        return _BalanceCheckOutcome.sufficient;
+      }
+      if (!mounted) return _BalanceCheckOutcome.cancel;
+      final choice = await showInsufficientBalanceDialog(
+        context,
+        currency: _currency,
+        currentBalanceMinor: walletBalance,
+        expenseAmountMinor: amountMinor,
+      );
+      switch (choice) {
+        case InsufficientBalanceChoice.convertCurrency:
+          return _BalanceCheckOutcome.convertCurrency;
+        case InsufficientBalanceChoice.externalFunding:
+          return _BalanceCheckOutcome.externalFunding;
+        case InsufficientBalanceChoice.cancel:
+          return _BalanceCheckOutcome.cancel;
       }
     } catch (_) {
-      // If the summary cannot be read, do not block the expense.
+      // If balances cannot be read, do not block the expense.
+      return _BalanceCheckOutcome.sufficient;
     }
-    return null;
   }
 
-  /// Shows the over-cash warning dialog. Returns `true` if the user chooses to
-  /// continue, `false` otherwise.
-  Future<bool?> _showOverCashWarning(_OverCashInfo info) {
-    return showDialog<bool>(
+  /// Opens the currency transfer dialog and returns `true` if a transfer was
+  /// recorded.
+  Future<bool> _openTransferDialog() async {
+    final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded,
-                color: Theme.of(ctx).colorScheme.error),
-            const SizedBox(width: 8),
-            Text(context.tr('financial_alert')),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(context.tr('expense_overcash_warning')),
-              const SizedBox(height: 16),
-              _ConfirmationRow(
-                label: context.tr('received_payments_label'),
-                value: formatCurrencyDisplay(info.receivedPayments, 'YER'),
-              ),
-              _ConfirmationRow(
-                label: context.tr('total_expenses_after_adding'),
-                value: formatCurrencyDisplay(info.totalExpensesAfter, 'YER'),
-              ),
-              _ConfirmationRow(
-                label: context.tr('expected_deficit'),
-                value: formatCurrencyDisplay(info.deficit, 'YER'),
-                bold: true,
-              ),
-              const SizedBox(height: 16),
-              Text(context.tr('continue_question'),
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.tr('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(context.tr('proceed')),
-          ),
-        ],
-      ),
+      builder: (_) =>
+          CurrencyTransferDialog(projectId: widget.projectId),
     );
+    if (result == true) {
+      ref.invalidate(projectWalletBalancesProvider(widget.projectId));
+    }
+    return result == true;
   }
 
   /// Live converted-value preview for cross-currency expenses.
@@ -474,59 +469,6 @@ class _ExpenseFormDialogState extends ConsumerState<ExpenseFormDialog> {
                   : context.tr('save_expense')),
         ),
       ],
-    );
-  }
-}
-
-/// Over-cash warning breakdown (all in YER minor units).
-class _OverCashInfo {
-  const _OverCashInfo({
-    required this.receivedPayments,
-    required this.totalExpensesAfter,
-    required this.deficit,
-  });
-  final int receivedPayments;
-  final int totalExpensesAfter;
-  final int deficit;
-}
-
-/// A labeled value row used inside confirmation dialogs.
-class _ConfirmationRow extends StatelessWidget {
-  const _ConfirmationRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

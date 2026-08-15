@@ -12,12 +12,14 @@ import 'tables/milestones_table.dart';
 import 'tables/payments_table.dart';
 import 'tables/expenses_table.dart';
 import 'tables/app_settings_table.dart';
+import 'tables/currency_transfers_table.dart';
 import 'daos/clients_dao.dart';
 import 'daos/projects_dao.dart';
 import 'daos/milestones_dao.dart';
 import 'daos/payments_dao.dart';
 import 'daos/expenses_dao.dart';
 import 'daos/app_settings_dao.dart';
+import 'daos/currency_transfers_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -28,6 +30,13 @@ part 'app_database.g.dart';
 /// Schema versioning:
 /// - Version 1: Initial schema (clients, projects, milestones, payments,
 ///   expenses, app_settings).
+/// - Version 2: Add soft-delete fields to payments table.
+/// - Version 3: Add soft-delete fields to expenses table.
+/// - Version 4: Move the verified locale preference into app_settings.
+/// - Version 5: Preserve the original contract value separately from the
+///   current (possibly amended) contract value.
+/// - Version 6: Add the currency_transfers table for multi-currency wallet
+///   transfer records.
 /// - Future versions: Add migration steps in [MigrationStrategy.onUpgrade].
 ///
 /// Foreign keys are enabled via [beforeOpen] callback on every connection.
@@ -41,6 +50,7 @@ part 'app_database.g.dart';
     Payments,
     Expenses,
     AppSettings,
+    CurrencyTransfers,
   ],
   daos: [
     ClientsDao,
@@ -49,6 +59,7 @@ part 'app_database.g.dart';
     PaymentsDao,
     ExpensesDao,
     AppSettingsDao,
+    CurrencyTransfersDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -112,6 +123,18 @@ class AppDatabase extends _$AppDatabase {
             'UPDATE projects SET original_contract_value_minor = budget_amount_minor '
             'WHERE original_contract_value_minor = 0 OR original_contract_value_minor IS NULL',
           );
+        }
+        // Schema v6: Add the currency_transfers table. Guarded for
+        // idempotency when restoring a backup whose file already has the
+        // table but whose user_version is older.
+        if (from < 6) {
+          final cols = await customSelect(
+            'PRAGMA table_info(currency_transfers)',
+            readsFrom: {currencyTransfers},
+          ).get();
+          if (cols.isEmpty) {
+            await m.createTable(currencyTransfers);
+          }
         }
       },
       beforeOpen: (details) async {

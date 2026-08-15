@@ -13,11 +13,15 @@ import '../../milestones/presentation/milestone_providers.dart';
 import '../../payments/domain/payment_entity.dart';
 import '../../payments/presentation/payment_form_dialog.dart';
 import '../../payments/presentation/payment_providers.dart';
+import '../../transfers/presentation/currency_transfer_dialog.dart';
+import '../../transfers/presentation/currency_transfer_providers.dart';
 import 'project_providers.dart';
 import '../domain/project_repository_interface.dart';
 import 'project_financial_presentation.dart';
 import '../../../core/database/finance/money_scale.dart';
 import '../../../core/database/finance/exchange_rate.dart';
+import '../../../core/database/finance/currency_conversion.dart';
+import '../../../core/database/database_constants.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   const ProjectDetailScreen({required this.id, super.key});
@@ -63,13 +67,7 @@ class _ProjectDetailBody extends ConsumerWidget {
   final WidgetRef ref;
 
   String _localizedStatus(BuildContext context, String s) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    if (s == 'active') return isAr ? 'نشط' : 'Active';
-    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
-    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
-    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
-    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
-    return s.replaceAll('_', ' ');
+    return context.tr('status_$s');
   }
 
   Color _statusColor(String s) {
@@ -92,7 +90,7 @@ class _ProjectDetailBody extends ConsumerWidget {
     final statusColor = _statusColor(project.status);
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         children: [
           // ── Header card ──
@@ -198,6 +196,7 @@ class _ProjectDetailBody extends ConsumerWidget {
               Tab(text: context.tr('tab_milestones')),
               Tab(text: context.tr('tab_payments')),
               Tab(text: context.tr('tab_expenses')),
+              Tab(text: context.tr('currency_transfer')),
             ],
           ),
           Expanded(
@@ -207,6 +206,7 @@ class _ProjectDetailBody extends ConsumerWidget {
                 _MilestonesTab(projectId: projectId),
                 _PaymentsTab(projectId: projectId),
                 _ExpensesTab(projectId: projectId),
+                _TransfersTab(projectId: projectId),
               ],
             ),
           ),
@@ -262,106 +262,313 @@ class _HeaderStat extends StatelessWidget {
 
 // ─── Profitability Tab ────────────────────────────────────────────────────────
 
-class _ProfitabilityTab extends ConsumerWidget {
+class _ProfitabilityTab extends ConsumerStatefulWidget {
   const _ProfitabilityTab({required this.projectId, required this.project});
   final String projectId;
   final dynamic project;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profitAsync = ref.watch(projectFinancialSummaryProvider(projectId));
+  ConsumerState<_ProfitabilityTab> createState() => _ProfitabilityTabState();
+}
+
+class _ProfitabilityTabState extends ConsumerState<_ProfitabilityTab> {
+  bool _showAnalytical = false;
+  String _analyticalRate = '410.000000';
+
+  @override
+  Widget build(BuildContext context) {
+    final profitAsync =
+        ref.watch(projectFinancialSummaryProvider(widget.projectId));
+    final walletsAsync =
+        ref.watch(projectWalletBalancesProvider(widget.projectId));
 
     return profitAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('${context.tr('error')} $e')),
       data: (data) {
-        // Remaining contract value and net cash flow are computed in the
-        // contract currency by the repository, using each row's immutable
-        // exchange-rate snapshot. The legacy YER balance is still used for
-        // the cash-flow status notice (surplus/deficit).
-        final remainingContract = data.remainingContractValue;
-        final isOverpayment = remainingContract < 0;
-        final netCashFlow = data.netCashFlow;
+        return walletsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('${context.tr('error')} $e')),
+          data: (wallets) {
+            final remainingContract = data.remainingContractValue;
+            final isOverpayment = remainingContract < 0;
+            final costOverrun = calculateCostOverrun(
+              contractValueYer: data.contractCurrency == 'YER'
+                  ? (widget.project.budgetAmountMinor as int)
+                  : null,
+              totalExpensesYer: data.contractCurrency == 'YER'
+                  ? data.totalExpensesContractCurrency
+                  : null,
+            );
 
-        final cashPresentation = cashFlowPresentation(netCashFlow);
-        final cashDetail = context
-            .tr(cashPresentation.detailKey)
-            .replaceAll('{amount}',
-                formatDisplayAmount(netCashFlow.abs(), data.contractCurrency));
-        final costOverrun = calculateCostOverrun(
-          contractValueYer: data.contractCurrency == 'YER'
-              ? (project.budgetAmountMinor as int)
-              : null,
-          totalExpensesYer: data.contractCurrency == 'YER'
-              ? data.totalExpensesContractCurrency
-              : null,
-        );
+            int? analyticalRateScaled;
+            int? analyticalConverted;
+            if (_showAnalytical) {
+              final parsed =
+                  double.tryParse(_analyticalRate.trim()) ??
+                  double.tryParse(_analyticalRate.trim().replaceAll(',', '.'));
+              if (parsed != null && parsed > 0) {
+                try {
+                  analyticalRateScaled =
+                      toScaledExchangeRateFromString(
+                          _analyticalRate.trim());
+                  analyticalConverted = wallets
+                      .balanceFor('YER') +
+                      convertToYer(wallets.balanceFor('SAR'), 'SAR',
+                          analyticalRateScaled);
+                } catch (_) {
+                  analyticalRateScaled = null;
+                }
+              }
+            }
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _ProfitCard(
-              label: context.tr('contract_value'),
-              value: formatDisplayAmount(
-                  project.budgetAmountMinor, project.budgetCurrency),
-              color: Colors.blueGrey,
-              icon: Icons.assignment_outlined,
-            ),
-            const SizedBox(height: 12),
-            _ProfitCard(
-              label: context.tr('payments_received'),
-              value: _groupedCurrencyDisplay(data.paymentsByCurrency),
-              color: Colors.green,
-              icon: Icons.payments_outlined,
-            ),
-            const SizedBox(height: 12),
-            _ProfitCard(
-              label: context.tr('expenses'),
-              value: _groupedCurrencyDisplay(data.expensesByCurrency),
-              color: Colors.red,
-              icon: Icons.receipt_long_outlined,
-            ),
-            const SizedBox(height: 12),
-            _ProfitCard(
-              label: context.tr('remaining_contract_value'),
-              value: formatDisplayAmount(
-                  remainingContract, data.contractCurrency),
-              color: isOverpayment ? Colors.purple : Colors.blue,
-              icon: Icons.account_balance_wallet_outlined,
-            ),
-            const SizedBox(height: 12),
-            _ProfitCard(
-              label: context.tr('net_cash_flow'),
-              value:
-                  formatDisplayAmount(netCashFlow, data.contractCurrency),
-              color: netCashFlow >= 0 ? Colors.teal : Colors.deepOrange,
-              icon: Icons.account_balance_outlined,
-              isLarge: true,
-            ),
-            const SizedBox(height: 12),
-            _FinancialNotice(
-              title: context.tr(cashPresentation.statusKey),
-              message: cashDetail,
-              color: netCashFlow < 0 ? Colors.deepOrange : Colors.teal,
-              icon: netCashFlow < 0
-                  ? Icons.trending_down
-                  : netCashFlow > 0
-                      ? Icons.trending_up
-                      : Icons.horizontal_rule,
-            ),
-            if (costOverrun != null && costOverrun > 0) ...[
-              const SizedBox(height: 12),
-              _FinancialNotice(
-                title: context.tr('cost_overrun'),
-                message: context.tr('cost_overrun_detail').replaceAll(
-                    '{amount}', formatDisplayAmount(costOverrun, 'YER')),
-                color: Colors.red,
-                icon: Icons.warning_amber_rounded,
-              ),
-            ],
-          ],
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _ProfitCard(
+                  label: context.tr('contract_value'),
+                  value: formatDisplayAmount(
+                      widget.project.budgetAmountMinor,
+                      widget.project.budgetCurrency),
+                  color: Colors.blueGrey,
+                  icon: Icons.assignment_outlined,
+                ),
+                const SizedBox(height: 12),
+                _ProfitCard(
+                  label: context.tr('payments_received'),
+                  value: _groupedCurrencyDisplay(data.paymentsByCurrency),
+                  color: Colors.green,
+                  icon: Icons.payments_outlined,
+                ),
+                const SizedBox(height: 12),
+                _ProfitCard(
+                  label: context.tr('expenses'),
+                  value: _groupedCurrencyDisplay(data.expensesByCurrency),
+                  color: Colors.red,
+                  icon: Icons.receipt_long_outlined,
+                ),
+                const SizedBox(height: 12),
+                _ProfitCard(
+                  label: context.tr('remaining_contract_value'),
+                  value: formatDisplayAmount(
+                      remainingContract, data.contractCurrency),
+                  color: isOverpayment ? Colors.purple : Colors.blue,
+                  icon: Icons.account_balance_wallet_outlined,
+                ),
+                const SizedBox(height: 16),
+                // Per-currency wallet balances — never mixed.
+                _WalletBalancesCard(wallets: wallets),
+                const SizedBox(height: 8),
+                // Optional analytical converted value, clearly marked.
+                _AnalyticalValueCard(
+                  showAnalytical: _showAnalytical,
+                  onToggle: (v) => setState(() => _showAnalytical = v),
+                  rate: _analyticalRate,
+                  onRateChanged: (v) => setState(() => _analyticalRate = v),
+                  analyticalConverted: analyticalConverted,
+                ),
+                if (costOverrun != null && costOverrun > 0) ...[
+                  const SizedBox(height: 12),
+                  _FinancialNotice(
+                    title: context.tr('cost_overrun'),
+                    message: context.tr('cost_overrun_detail').replaceAll(
+                        '{amount}', formatDisplayAmount(costOverrun, 'YER')),
+                    color: Colors.red,
+                    icon: Icons.warning_amber_rounded,
+                  ),
+                ],
+              ],
+            );
+          },
         );
       },
+    );
+  }
+}
+
+/// Per-currency wallet balances card. Displays the SAR and YER wallet
+/// balances independently — never mixed. The header reads "الرصيد النقدي
+/// الحالي" / "Current cash balance".
+class _WalletBalancesCard extends StatelessWidget {
+  const _WalletBalancesCard({required this.wallets});
+  final ProjectWalletBalances wallets;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_balance_outlined,
+                  color: Colors.teal, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  context.tr('current_cash_balance'),
+                  style: TextStyle(
+                      color: Colors.teal,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final entry in wallets.balances) ...[
+            _WalletBalanceRow(entry: entry),
+            if (entry.currency != wallets.balances.last.currency)
+              const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletBalanceRow extends StatelessWidget {
+  const _WalletBalanceRow({required this.entry});
+  final WalletBalanceEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelKey =
+        entry.currency == 'SAR' ? 'wallet_balance_sar' : 'wallet_balance_yer';
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            '${context.tr(labelKey)} (${entry.currency})',
+            style: TextStyle(
+                color: Colors.teal.withValues(alpha: 0.85), fontSize: 14),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          flex: 3,
+          child: Text(
+            formatCurrencyDisplay(entry.amountMinor, entry.currency),
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              color: entry.amountMinor < 0 ? Colors.deepOrange : Colors.teal,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Optional analytical converted value card. Shows a toggle to reveal an
+/// analytical YER-equivalent total computed from a user-selected exchange
+/// rate. The value is clearly marked as analytical only and is never used
+/// for financial calculations or stored.
+class _AnalyticalValueCard extends StatelessWidget {
+  const _AnalyticalValueCard({
+    required this.showAnalytical,
+    required this.onToggle,
+    required this.rate,
+    required this.onRateChanged,
+    required this.analyticalConverted,
+  });
+  final bool showAnalytical;
+  final ValueChanged<bool> onToggle;
+  final String rate;
+  final ValueChanged<String> onRateChanged;
+  final int? analyticalConverted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: Colors.blueGrey.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined,
+                  color: Colors.blueGrey, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  context.tr('analytical_converted_value'),
+                  style: TextStyle(
+                      color: Colors.blueGrey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+              ),
+              Switch(
+                value: showAnalytical,
+                onChanged: onToggle,
+              ),
+            ],
+          ),
+          if (showAnalytical) ...[
+            TextField(
+              decoration: InputDecoration(
+                labelText: context.tr('analytical_exchange_rate'),
+                hintText: 'e.g. 410.000000',
+                isDense: true,
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              controller: TextEditingController(text: rate),
+              onChanged: onRateChanged,
+            ),
+            const SizedBox(height: 8),
+            if (analyticalConverted != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'YER',
+                      style: TextStyle(
+                          color: Colors.blueGrey.withValues(alpha: 0.85),
+                          fontSize: 14),
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      formatCurrencyDisplay(analyticalConverted!, 'YER'),
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        color: Colors.blueGrey,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              context.tr('analytical_value_disclaimer'),
+              style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.blueGrey.withValues(alpha: 0.7)),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -717,6 +924,57 @@ class _ExpensesTab extends ConsumerWidget {
   }
 }
 
+// ─── Transfers Tab ─────────────────────────────────────────────────────────────
+
+class _TransfersTab extends ConsumerWidget {
+  const _TransfersTab({required this.projectId});
+  final String projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final transfersAsync = ref.watch(transfersByProjectProvider(projectId));
+    return Stack(
+      children: [
+        transfersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+          data: (transfers) {
+            if (transfers.isEmpty) {
+              return Center(child: Text(context.tr('no_transfers')));
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              itemCount: transfers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final t = transfers[i];
+                return _TransactionCard(
+                  amount:
+                      '${formatDisplayAmount(t.sourceAmountMinor, t.sourceCurrency)} → ${formatDisplayAmount(t.targetAmountMinor, t.targetCurrency)}',
+                  subtitle:
+                      '${_fmtDate(t.date)}  •  1 ${t.sourceCurrency} = ${formatScaledExchangeRate(t.exchangeRateScaled)} ${t.targetCurrency == kCurrencyYer ? 'YER' : t.targetCurrency}',
+                  icon: Icons.swap_horiz,
+                  color: Colors.indigo,
+                  onTap: () {},
+                );
+              },
+            );
+          },
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            heroTag: 'transfer-fab',
+            child: const Icon(Icons.swap_horiz),
+            onPressed: () => _showTransferForm(context, ref, projectId),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Shared small widgets ─────────────────────────────────────────────────────
 
 class _TotalBanner extends StatelessWidget {
@@ -839,6 +1097,17 @@ void _showExpenseForm(BuildContext context, WidgetRef ref, String projectId,
     builder: (_) => ExpenseFormDialog(projectId: projectId, expense: expense),
   );
   if (result == true) ref.invalidate(expensesByProjectProvider(projectId));
+}
+
+void _showTransferForm(BuildContext context, WidgetRef ref, String projectId) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (_) => CurrencyTransferDialog(projectId: projectId),
+  );
+  if (result == true) {
+    ref.invalidate(transfersByProjectProvider(projectId));
+    ref.invalidate(projectWalletBalancesProvider(projectId));
+  }
 }
 
 String _fmtDate(DateTime d) =>

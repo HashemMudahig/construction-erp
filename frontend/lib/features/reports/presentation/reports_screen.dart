@@ -32,13 +32,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   ];
 
   String _localizedStatus(BuildContext ctx, String s) {
-    final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
-    if (s == 'active') return isAr ? 'نشط' : 'Active';
-    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
-    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
-    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
-    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
-    return s.replaceAll('_', ' ');
+    return ctx.tr('status_$s');
   }
 
   @override
@@ -462,13 +456,7 @@ class _ProjectStatusResults extends StatelessWidget {
   final List<ProjectStatusReportRow> data;
 
   String _localizedStatus(BuildContext ctx, String s) {
-    final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
-    if (s == 'active') return isAr ? 'نشط' : 'Active';
-    if (s == 'completed') return isAr ? 'مكتمل' : 'Completed';
-    if (s == 'on_hold') return isAr ? 'معلق' : 'On Hold';
-    if (s == 'cancelled') return isAr ? 'ملغى' : 'Cancelled';
-    if (s == 'planning') return isAr ? 'تخطيط' : 'Planning';
-    return s.replaceAll('_', ' ');
+    return ctx.tr('status_$s');
   }
 
   Color _statusColor(String s) {
@@ -643,7 +631,35 @@ class _FinancialSummaryResults extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // KPI cards row
+        // Actual wallet balances — never mixed.
+        _SectionLabel(label: context.tr('current_cash_balance')),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+                child: _KpiCard(
+                    label: context.tr('wallet_balance_sar'),
+                    value: _formatMoney(
+                        data.totalSarWalletBalance, 'SAR'),
+                    color: Colors.indigo,
+                    icon: Icons.account_balance_wallet_outlined)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _KpiCard(
+                    label: context.tr('wallet_balance_yer'),
+                    value: _formatYer(data.totalYerWalletBalance),
+                    color: Colors.teal,
+                    icon: Icons.account_balance_wallet_outlined)),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // Analytical converted value (clearly marked).
+        _AnalyticalValueBanner(
+          yerValue: data.totalYerWalletBalance +
+              _convertSarToYerAnalytical(data.totalSarWalletBalance),
+        ),
+        const SizedBox(height: 20),
+        // KPI cards row (YER-aggregated snapshots for backward compat).
         Row(
           children: [
             Expanded(
@@ -681,6 +697,68 @@ class _FinancialSummaryResults extends StatelessWidget {
       ],
     );
   }
+
+  // Analytical conversion uses the default 410 rate as a reporting aid only.
+  int _convertSarToYerAnalytical(int sarMinor) {
+    if (sarMinor == 0) return 0;
+    try {
+      return formatSarToYerAnalytical(sarMinor);
+    } catch (_) {
+      return 0;
+    }
+  }
+}
+
+/// Analytical converted value banner. The value is a reporting aid only and
+/// is clearly marked as analytical.
+class _AnalyticalValueBanner extends StatelessWidget {
+  const _AnalyticalValueBanner({required this.yerValue});
+  final int yerValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_outlined,
+                  color: Colors.blueGrey, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                context.tr('analytical_converted_value'),
+                style: TextStyle(
+                    color: Colors.blueGrey, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _formatYer(yerValue),
+            style: TextStyle(
+                color: Colors.blueGrey,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.tr('analytical_value_disclaimer'),
+            style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: Colors.blueGrey.withValues(alpha: 0.7)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FinancialProjectRow extends StatelessWidget {
@@ -714,13 +792,13 @@ class _FinancialProjectRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis),
           ),
           _MiniStat(
-              label: context.tr('payments_received'),
-              value: _formatYer(project.totalPaymentsYer),
-              color: Colors.green),
+              label: context.tr('wallet_balance_sar'),
+              value: _formatMoney(project.sarWalletBalance, 'SAR'),
+              color: Colors.indigo),
           _MiniStat(
-              label: context.tr('expenses'),
-              value: _formatYer(project.totalExpensesYer),
-              color: Colors.red),
+              label: context.tr('wallet_balance_yer'),
+              value: _formatYer(project.yerWalletBalance),
+              color: Colors.teal),
           _MiniStat(
             label: context.tr('net_cash_flow'),
             value: _formatYer(project.netCashFlowYer),
@@ -999,6 +1077,23 @@ String _formatYer(int value) => formatCurrencyDisplay(value, 'YER');
 
 String _formatMoney(int minorUnits, String currency) {
   return formatCurrencyDisplay(minorUnits, currency);
+}
+
+/// Analytical SAR-to-YER conversion using the default 410 rate. This is a
+/// reporting aid only — actual wallet balances are never mixed. The default
+/// rate is used because reports do not capture a per-report analytical rate
+/// in v1.
+int formatSarToYerAnalytical(int sarMinor) {
+  // 1 SAR = 410 YER; rate scaled = 410000000.
+  const defaultRateScaled = 410000000;
+  final amountBig = BigInt.from(sarMinor);
+  final rateBig = BigInt.from(defaultRateScaled);
+  const minorFactor = 100;
+  const rateFactor = 1000000;
+  final divisor = BigInt.from(minorFactor * rateFactor);
+  final numerator = amountBig * rateBig;
+  final halfDivisor = divisor ~/ BigInt.two;
+  return ((numerator + halfDivisor) ~/ divisor).toInt();
 }
 
 String _formatPercent(int basisPoints) =>

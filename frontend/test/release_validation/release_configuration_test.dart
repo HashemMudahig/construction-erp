@@ -36,7 +36,7 @@ void main() {
         File('lib/core/database/database_constants.dart').readAsStringSync();
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(constants, contains('kSchemaVersion = 5'));
+    expect(constants, contains('kSchemaVersion = 6'));
     expect(gradle, contains('applicationId = "com.example.construction_erp"'));
     expect(pubspec, contains('version: 1.0.0+1'));
   });

@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 
 import 'dashboard_providers.dart';
 import '../domain/dashboard_models.dart';
+import '../../transfers/domain/wallet_balance_service.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/database/database_constants.dart';
 import '../../../core/database/finance/money_scale.dart';
 
 String _formatYerAmount(int amount) {
@@ -25,6 +27,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
+    final walletAsync = ref.watch(dashboardGlobalWalletProvider);
     final projectsAsync = ref.watch(dashboardProjectsProvider);
     final financeAsync = ref.watch(dashboardFinanceProvider);
     final theme = Theme.of(context);
@@ -35,7 +38,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: CustomScrollView(
         slivers: [
           _buildAppBar(now, theme),
-          SliverToBoxAdapter(child: _buildProfitCard(context, summaryAsync)),
+          SliverToBoxAdapter(
+              child: _buildGlobalWalletCard(context, walletAsync)),
           SliverToBoxAdapter(child: _buildKpiRow(context, summaryAsync)),
           SliverToBoxAdapter(
               child: _buildActivitySection(context, projectsAsync)),
@@ -127,8 +131,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildProfitCard(
-      BuildContext context, AsyncValue<dynamic> summaryAsync) {
+  Widget _buildGlobalWalletCard(
+      BuildContext context, AsyncValue<ProjectWalletBalances> walletAsync) {
     final theme = Theme.of(context);
     final locale = ref.watch(localeProvider);
     return Container(
@@ -152,7 +156,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      child: summaryAsync.when(
+      child: walletAsync.when(
         loading: () => SizedBox(
             height: 120,
             child:
@@ -162,7 +166,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ? 'خطأ في تحميل البيانات'
                 : 'Error loading data',
             style: const TextStyle(color: Colors.white)),
-        data: (s) {
+        data: (wallets) {
+          final yerBalance = wallets.balanceFor(kCurrencyYer);
+          final sarBalance = wallets.balanceFor(kCurrencySar);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -174,46 +180,55 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.trending_up,
+                    child: Icon(Icons.account_balance_wallet,
                         color: Colors.white, size: 22),
                   ),
                   SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      context.tr('net_cash_flow'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('current_cash_balance'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          context.tr('all_projects'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16),
-              Text(
-                _formatYerAmount(s.netCashFlowYer),
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontSize: 36,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                'YER',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
               SizedBox(height: 20),
-              SizedBox(
-                height: 70,
-                child: CustomPaint(
-                  painter: _SparklinePainter(),
-                  size: Size.infinite,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _WalletBalanceTile(
+                      label: context.tr('wallet_balance_yer'),
+                      currency: kCurrencyYer,
+                      amountMinor: yerBalance,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: _WalletBalanceTile(
+                      label: context.tr('wallet_balance_sar'),
+                      currency: kCurrencySar,
+                      amountMinor: sarBalance,
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -237,7 +252,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final kpis = [
           _KpiData(
             title: context.tr('projects'),
-            value: '${s.activeProjectCount + s.completedProjectCount}',
+            value: '${s.totalProjectCount}',
             icon: Icons.folder,
             color: const Color(0xFF3B82F6),
             trend: '',
@@ -260,8 +275,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             trendUp: false,
           ),
           _KpiData(
-            title: locale.languageCode == 'ar' ? 'معلقة' : 'Pending',
-            value: '${s.activeClientCount}',
+            title: context.tr('status_on_hold'),
+            value: '${s.onHoldProjectCount}',
             icon: Icons.schedule,
             color: const Color(0xFF8B5CF6),
             trend: '',
@@ -407,7 +422,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         trendUp: summary.netCashFlowYer >= 0,
                         icon: Icons.account_balance_wallet,
                         color: summary.netCashFlowYer >= 0
-                            ? const Color(0xFF10B981)
+                            ? Colors.teal
                             : const Color(0xFFEF4444),
                       )),
                 ]);
@@ -514,13 +529,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onTap: () => context.go('/reports'),
       ),
       _QuickActionData(
-        title: context.tr('payment'),
+        title: context.tr('new_payment'),
         icon: Icons.payment,
         color: const Color(0xFF10B981),
         onTap: () {},
       ),
       _QuickActionData(
-        title: context.tr('expense'),
+        title: context.tr('new_expense'),
         icon: Icons.receipt_long,
         color: const Color(0xFFEF4444),
         onTap: () {},
@@ -671,8 +686,24 @@ class _ActivityCard extends StatelessWidget {
   final ThemeData theme;
   const _ActivityCard({required this.project, required this.theme});
 
+  (Color bg, Color fg) _statusColors(String status) {
+    switch (status) {
+      case 'active':
+        return (const Color(0xFFDCFCE7), const Color(0xFF166534));
+      case 'completed':
+        return (const Color(0xFFDBEAFE), const Color(0xFF1E40AF));
+      case 'on_hold':
+        return (const Color(0xFFFED7AA), const Color(0xFF9A3412));
+      case 'cancelled':
+        return (const Color(0xFFFEE2E2), const Color(0xFF991B1B));
+      default:
+        return (const Color(0xFFF1F5F9), const Color(0xFF475569));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final (bg, fg) = _statusColors(project.projectStatus);
     return Container(
       padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -715,14 +746,14 @@ class _ActivityCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
+              color: bg,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              context.tr('status_completed'),
+              context.tr('status_${project.projectStatus}'),
               style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF166534),
+                  color: fg,
                   fontSize: 11),
             ),
           ),
@@ -769,49 +800,83 @@ class _FinancialCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: trendUp
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      trendUp ? Icons.trending_up : Icons.trending_down,
-                      color: trendUp
-                          ? const Color(0xFF166534)
-                          : const Color(0xFF991B1B),
-                      size: 12,
-                    ),
-                    SizedBox(width: 2),
-                    Text(
-                      trend,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: Color(0xFF166534)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+         Row(
+ 
+  children: [
+    // RIGHT: Main operation icon
+    Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        icon,
+        color: color,
+        size: 20,
+      ),
+    ),
+
+    const SizedBox(width: 8),
+
+    // RIGHT/CENTER: Operation title
+    Expanded(
+      child: Text(
+        title,
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+
+    const SizedBox(width: 8),
+
+    // LEFT: Trend indicator
+    Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: trendUp
+            ? const Color(0xFFDCFCE7)
+            : const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            trendUp
+                ? Icons.trending_up
+                : Icons.trending_down,
+            color: trendUp
+                ? const Color(0xFF166534)
+                : const Color(0xFF991B1B),
+            size: 12,
           ),
-          SizedBox(height: 12),
+          const SizedBox(width: 2),
+          Text(
+            trend,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              color: trendUp
+                  ? const Color(0xFF166534)
+                  : const Color(0xFF991B1B),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ],
+),
+        const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
@@ -823,7 +888,7 @@ class _FinancialCard extends StatelessWidget {
           ),
           SizedBox(height: 2),
           Text(
-            '$currency  $title',
+            currency,
             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -898,49 +963,74 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _SparklinePainter extends CustomPainter {
+/// A single currency balance tile inside the global wallet card.
+/// Renders the localized wallet label, the formatted amount (preserving
+/// negative values), and the currency code. SAR and YER tiles are always
+/// shown side by side and never added together.
+class _WalletBalanceTile extends StatelessWidget {
+  const _WalletBalanceTile({
+    required this.label,
+    required this.currency,
+    required this.amountMinor,
+  });
+
+  final String label;
+  final String currency;
+  final int amountMinor;
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    final points = [
-      Offset(0, size.height * 0.7),
-      Offset(size.width * 0.1, size.height * 0.6),
-      Offset(size.width * 0.2, size.height * 0.65),
-      Offset(size.width * 0.3, size.height * 0.5),
-      Offset(size.width * 0.4, size.height * 0.55),
-      Offset(size.width * 0.5, size.height * 0.4),
-      Offset(size.width * 0.6, size.height * 0.45),
-      Offset(size.width * 0.7, size.height * 0.3),
-      Offset(size.width * 0.8, size.height * 0.35),
-      Offset(size.width * 0.9, size.height * 0.2),
-      Offset(size.width, size.height * 0.25),
-    ];
-
-    path.moveTo(points[0].dx, points[0].dy);
-    for (var i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-    canvas.drawPath(path, paint);
-
-    final fillPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
-
-    final fillPath = Path.from(path);
-    fillPath.lineTo(size.width, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
-    canvas.drawPath(fillPath, fillPaint);
+  Widget build(BuildContext context) {
+    final isNegative = amountMinor < 0;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              formatCurrencyDisplay(amountMinor, currency)
+                  .replaceAll(' $currency', ''),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                color: isNegative
+                    ? const Color(0xFFFCA5A5)
+                    : Colors.white,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(height: 2),
+          Text(
+            currency,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _InteractiveLineChart extends StatefulWidget {
@@ -954,6 +1044,21 @@ class _InteractiveLineChart extends StatefulWidget {
 class _InteractiveLineChartState extends State<_InteractiveLineChart> {
   int? _hoveredIndex;
 
+  static const _monthKeys = [
+    'month_jan',
+    'month_feb',
+    'month_mar',
+    'month_apr',
+    'month_may',
+    'month_jun',
+    'month_jul',
+    'month_aug',
+    'month_sep',
+    'month_oct',
+    'month_nov',
+    'month_dec',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final maxVal = widget.months.fold<int>(1, (m, p) {
@@ -964,6 +1069,9 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
     });
     final maxDouble = maxVal.abs().toDouble();
     final chartMax = maxDouble == 0 ? 1.0 : maxDouble;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final monthLabels =
+        _monthKeys.map((key) => context.tr(key)).toList(growable: false);
 
     return GestureDetector(
       onPanUpdate: (details) {
@@ -983,6 +1091,8 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
               months: widget.months,
               maxVal: chartMax,
               hoveredIndex: _hoveredIndex,
+              monthLabels: monthLabels,
+              textDirection: isAr ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             ),
             size: Size.infinite,
           ),
@@ -1078,9 +1188,16 @@ class _MultiLineChartPainter extends CustomPainter {
   final List<DashboardFinanceMonth> months;
   final double maxVal;
   final int? hoveredIndex;
+  final List<String> monthLabels;
+  final ui.TextDirection textDirection;
 
-  _MultiLineChartPainter(
-      {required this.months, required this.maxVal, this.hoveredIndex});
+  _MultiLineChartPainter({
+    required this.months,
+    required this.maxVal,
+    this.hoveredIndex,
+    required this.monthLabels,
+    required this.textDirection,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1149,21 +1266,7 @@ class _MultiLineChartPainter extends CustomPainter {
       }
     }
 
-    final monthLabels = [
-      'يناير',
-      'فبراير',
-      'مارس',
-      'ابريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'اغسطس',
-      'سبتمبر',
-      'اكتوبر',
-      'نوفمبر',
-      'ديسمبر'
-    ];
-    final textPainter = TextPainter(textDirection: ui.TextDirection.rtl);
+    final textPainter = TextPainter(textDirection: textDirection);
     for (var i = 0; i < months.length && i < 12; i++) {
       final x = i * barWidth * 1.5 + barWidth * 0.75;
       textPainter.text = TextSpan(
@@ -1178,5 +1281,8 @@ class _MultiLineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MultiLineChartPainter old) =>
-      old.months != months || old.hoveredIndex != hoveredIndex;
+      old.months != months ||
+      old.hoveredIndex != hoveredIndex ||
+      old.monthLabels != monthLabels ||
+      old.textDirection != textDirection;
 }

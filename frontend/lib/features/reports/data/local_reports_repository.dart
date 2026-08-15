@@ -58,6 +58,8 @@ class LocalReportsRepository implements ReportsRepositoryInterface {
               name: row.name,
               totalPaymentsYer: row.paymentsYer,
               totalExpensesYer: row.expensesYer,
+              sarWalletBalance: row.sarWalletBalance,
+              yerWalletBalance: row.yerWalletBalance,
             ))
         .toList();
     return FinancialSummaryReport(
@@ -67,6 +69,10 @@ class LocalReportsRepository implements ReportsRepositoryInterface {
           projects.fold(0, (sum, row) => sum + row.totalPaymentsYer),
       totalExpensesYer:
           projects.fold(0, (sum, row) => sum + row.totalExpensesYer),
+      totalSarWalletBalance:
+          projects.fold(0, (sum, row) => sum + row.sarWalletBalance),
+      totalYerWalletBalance:
+          projects.fold(0, (sum, row) => sum + row.yerWalletBalance),
       perProject: projects,
     );
   }

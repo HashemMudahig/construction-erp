@@ -6,9 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:construction_erp/core/localization/app_localizations.dart';
+import 'package:construction_erp/core/database/database_constants.dart';
 import 'package:construction_erp/features/dashboard/domain/dashboard_models.dart';
 import 'package:construction_erp/features/dashboard/presentation/dashboard_providers.dart';
 import 'package:construction_erp/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:construction_erp/features/transfers/domain/wallet_balance_service.dart';
 
 class _FixedLocaleNotifier extends LocaleNotifier {
   _FixedLocaleNotifier(Locale locale) {
@@ -18,10 +20,24 @@ class _FixedLocaleNotifier extends LocaleNotifier {
 
 const _summary = DashboardSummary(
   activeClientCount: 2,
+  totalProjectCount: 2,
+  planningProjectCount: 0,
   activeProjectCount: 1,
   completedProjectCount: 1,
+  onHoldProjectCount: 0,
+  cancelledProjectCount: 0,
   totalPaymentsYer: 1000,
   totalExpensesYer: 2500,
+);
+
+final _walletBalances = ProjectWalletBalances(
+  balances: [
+    WalletBalanceEntry(currency: kCurrencySar, amountMinor: 100000),
+    WalletBalanceEntry(currency: kCurrencyYer, amountMinor: -1500),
+  ],
+  paymentsByCurrency: {kCurrencySar: 100000, kCurrencyYer: 1000},
+  expensesByCurrency: {kCurrencyYer: 2500},
+  transfersByCurrency: {},
 );
 
 const _project = DashboardProjectOverview(
@@ -50,6 +66,7 @@ Future<void> _pumpDashboard(
   required Size size,
   required Locale locale,
   Future<DashboardSummary>? summary,
+  Future<ProjectWalletBalances>? wallet,
   Future<List<DashboardProjectOverview>>? projects,
   Future<List<DashboardFinanceMonth>>? finance,
 }) async {
@@ -64,6 +81,8 @@ Future<void> _pumpDashboard(
         localeProvider.overrideWith((ref) => _FixedLocaleNotifier(locale)),
         dashboardSummaryProvider
             .overrideWith((ref) => summary ?? Future.value(_summary)),
+        dashboardGlobalWalletProvider
+            .overrideWith((ref) => wallet ?? Future.value(_walletBalances)),
         dashboardProjectsProvider
             .overrideWith((ref) => projects ?? Future.value([_project])),
         dashboardFinanceProvider
@@ -71,6 +90,8 @@ Future<void> _pumpDashboard(
       ],
       child: MaterialApp(
         locale: locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Directionality(
           textDirection: locale.languageCode == 'ar'
               ? TextDirection.rtl
@@ -106,12 +127,13 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.text('YER'), findsWidgets);
         expect(find.text('-1,500'), findsWidgets);
+        // The global wallet hero card must render its title.
         expect(
           find.byWidgetPredicate((widget) =>
               widget is Text &&
-              (widget.data == 'Net cash flow' ||
-                  widget.data == 'صافي التدفق النقدي')),
-          findsWidgets,
+              (widget.data == 'Current cash balance' ||
+                  widget.data == 'الرصيد النقدي الحالي')),
+          findsOneWidget,
         );
       });
     }
@@ -168,5 +190,84 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Unable to read local data'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // Raw localization keys / internal identifiers that must never be rendered
+  // to the end user in any locale.
+  const _forbiddenRawKeys = <String>[
+    'project_overview',
+    'monthly_performance',
+    'revenue',
+    'expenses',
+    'profit',
+    'payment',
+    'expense',
+    'reports',
+    'status_active',
+    'status_completed',
+    'status_on_hold',
+    'status_planning',
+    'status_cancelled',
+    'STATUS_ACTIVE',
+    'STATUS_COMPLETED',
+    'STATUS_PAUSED',
+    'STATUS_PLANNING',
+    'STATUS_CANCELLED',
+  ];
+
+  testWidgets('Arabic Dashboard exposes no raw localization keys or status tokens',
+      (tester) async {
+    await _pumpDashboard(
+      tester,
+      size: const Size(800, 1280),
+      locale: const Locale('ar'),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    for (final raw in _forbiddenRawKeys) {
+      expect(
+        find.text(raw),
+        findsNothing,
+        reason: 'Raw key/token "$raw" must not be rendered in Arabic mode.',
+      );
+    }
+    // Localized Arabic labels must be present.
+    expect(find.text('الرصيد النقدي الحالي'), findsOneWidget);
+    expect(find.text('نظرة عامة على المشاريع'), findsOneWidget);
+    expect(find.text('الأداء الشهري'), findsOneWidget);
+    expect(find.text('الإيرادات'), findsOneWidget);
+    expect(find.text('المصروفات'), findsWidgets);
+    expect(find.text('الربح'), findsOneWidget);
+    expect(find.text('التقارير', skipOffstage: false), findsOneWidget);
+    expect(find.text('دفعة جديدة', skipOffstage: false), findsOneWidget);
+    expect(find.text('مصروف جديد', skipOffstage: false), findsOneWidget);
+  });
+
+  testWidgets('English Dashboard exposes no raw localization keys or status tokens',
+      (tester) async {
+    await _pumpDashboard(
+      tester,
+      size: const Size(800, 1280),
+      locale: const Locale('en'),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    for (final raw in _forbiddenRawKeys) {
+      expect(
+        find.text(raw),
+        findsNothing,
+        reason: 'Raw key/token "$raw" must not be rendered in English mode.',
+      );
+    }
+    // Localized English labels must be present.
+    expect(find.text('Current cash balance'), findsOneWidget);
+    expect(find.text('Project Overview'), findsOneWidget);
+    expect(find.text('Monthly Performance'), findsOneWidget);
+    expect(find.text('Revenue'), findsOneWidget);
+    expect(find.text('Expenses'), findsWidgets);
+    expect(find.text('Profit'), findsOneWidget);
+    expect(find.text('Reports', skipOffstage: false), findsOneWidget);
+    expect(find.text('New Payment', skipOffstage: false), findsOneWidget);
+    expect(find.text('New Expense', skipOffstage: false), findsOneWidget);
   });
 }

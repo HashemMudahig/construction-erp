@@ -5,14 +5,22 @@ import '../app_database.dart';
 class DashboardSummaryRow {
   const DashboardSummaryRow({
     required this.activeClients,
+    required this.totalProjects,
+    required this.planningProjects,
     required this.activeProjects,
     required this.completedProjects,
+    required this.onHoldProjects,
+    required this.cancelledProjects,
     required this.totalPaymentsYer,
     required this.totalExpensesYer,
   });
   final int activeClients;
+  final int totalProjects;
+  final int planningProjects;
   final int activeProjects;
   final int completedProjects;
+  final int onHoldProjects;
+  final int cancelledProjects;
   final int totalPaymentsYer;
   final int totalExpensesYer;
 }
@@ -54,8 +62,12 @@ class DashboardDao {
     final row = await db.customSelect('''
       SELECT
         (SELECT COUNT(*) FROM clients WHERE archived = 0) AS active_clients,
+        (SELECT COUNT(*) FROM projects) AS total_projects,
+        (SELECT COUNT(*) FROM projects WHERE status = 'planning') AS planning_projects,
         (SELECT COUNT(*) FROM projects WHERE status = 'active') AS active_projects,
         (SELECT COUNT(*) FROM projects WHERE status = 'completed') AS completed_projects,
+        (SELECT COUNT(*) FROM projects WHERE status = 'on_hold') AS on_hold_projects,
+        (SELECT COUNT(*) FROM projects WHERE status = 'cancelled') AS cancelled_projects,
         (SELECT COALESCE(SUM(converted_yer_amount), 0) FROM payments WHERE is_deleted = 0) AS payments_yer,
         (SELECT COALESCE(SUM(converted_yer_amount), 0) FROM expenses WHERE is_deleted = 0) AS expenses_yer
     ''', readsFrom: {
@@ -66,8 +78,12 @@ class DashboardDao {
     }).getSingle();
     return DashboardSummaryRow(
       activeClients: row.read<int>('active_clients'),
+      totalProjects: row.read<int>('total_projects'),
+      planningProjects: row.read<int>('planning_projects'),
       activeProjects: row.read<int>('active_projects'),
       completedProjects: row.read<int>('completed_projects'),
+      onHoldProjects: row.read<int>('on_hold_projects'),
+      cancelledProjects: row.read<int>('cancelled_projects'),
       totalPaymentsYer: row.read<int>('payments_yer'),
       totalExpensesYer: row.read<int>('expenses_yer'),
     );

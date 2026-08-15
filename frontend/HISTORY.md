@@ -1,5 +1,226 @@
 # Frontend History
 
+## 2026-08-15 — Dashboard Global Multi-Currency Wallet
+
+- **Replaced the misleading hero "Net Cash Flow" card** (which displayed a
+  currency-mixed `SUM(converted_yer_amount) − SUM(converted_yer_amount)`)
+  with a **"الرصيد النقدي الحالي / Current Cash Balance"** card showing the
+  **global wallet balance across ALL projects**, with **SAR and YER displayed
+  separately and never added together**.
+- **Reused the existing `WalletBalanceService`** as the single financial truth.
+  Added `WalletBalanceService.computeGlobalBalances()` which aggregates every
+  active payment, expense, and currency transfer across all projects using the
+  same per-currency formula (`payments − expenses + transfers in − transfers
+  out`, per currency, never mixed). No second wallet engine was created.
+- **Architecture:** DAO global queries → `WalletBalanceService` →
+  `LocalDashboardRepository.getGlobalWalletBalances` →
+  `dashboardGlobalWalletProvider` → Dashboard UI. Follows the existing
+  DAO → Repository → Domain → Provider → UI layering.
+- **UI:** The hero card now shows the wallet icon + "الرصيد النقدي الحالي" +
+  "جميع المشاريع" subtitle, then two side-by-side tiles: "محفظة الريال
+  اليمني / YER" and "محفظة الريال السعودي / SAR". Negative balances are
+  shown clearly in a soft red (`0xFFFCA5A5`); positive in white. Zero state
+  renders `0` for both currencies. Both currencies are always shown even when
+  one is zero. Uses the existing gradient, radius, shadow, and typography.
+- **Currency transfers** are now reflected on the Dashboard through the wallet
+  engine (a transfer debits the source wallet and credits the target wallet).
+  Transfers are never counted as income or expenses.
+- **Legacy `converted_yer_amount` anomaly**: the Dashboard wallet no longer
+  uses `converted_yer_amount` for the balance. Historical malformed rows do
+  not affect the wallet (Test 9 confirms). The old `DashboardSummary` fields
+  (`totalPaymentsYer`/`totalExpensesYer`/`netCashFlowYer`) remain for the
+  analytical financial-overview cards below, which are clearly labelled as
+  expenses/payments/net-cash-flow (flow metrics, not balance).
+- **No schema changes.** No changes to payment, expense, transfer,
+  exchange-rate, contract-value, or project-status logic. The three financial
+  overview cards, KPI row, activity section, monthly chart, and quick actions
+  are unchanged.
+- **Tests:** Added `dashboard_global_wallet_test.dart` with 11 tests covering:
+  zero-state, SAR-only, YER-only, mixed currencies (not added), expense,
+  currency transfer, multi-project aggregation, negative wallet, legacy
+  `converted_yer_amount` anomaly exclusion, soft-delete exclusion, and a
+  currency-independence invariant. Updated existing dashboard widget tests for
+  the new `dashboardGlobalWalletProvider` and hero card labels.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 537 tests pass (includes 320x640 narrow viewport
+  overflow checks for the Dashboard in Arabic and English).
+
+## 2026-08-15 — Financial Card Title Colors Match Semantic Card Color
+
+- **UI-only change:** The operation title in each Dashboard
+  `_FinancialCard` now uses the same semantic `color` passed to the card
+  instead of the fixed gray `0xFF64748B`. "المصروفات" renders red,
+  "الدفعات المستلمة" renders green, and "صافي التدفق النقدي" renders
+  teal (`Colors.teal`) to match the "الرصيد النقدي الحالي" wallet
+  color used in the project detail and reports screens (red when
+  negative).
+- No financial calculations, card layout, icons, trend indicators,
+  financial values, typography sizes, localization, spacing, or
+  business logic were changed.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 526 tests pass (includes 320x640 narrow
+  viewport overflow checks for the Dashboard in Arabic and English).
+
+## 2026-08-15 — Financial Summary Card Layout Reverted
+
+- **Reverted** the previous financial-card header repositioning that
+  incorrectly moved the operation icon + label group. Restored the
+  previously-approved layout: a single header `Row` of
+  `[icon] [label (Expanded)] [trend badge (Flexible)]`. Under the
+  ambient RTL `Directionality` this places the operation icon + label
+  on the **right** and the small trend/direction indicator on the
+  **left**, with the financial value remaining the dominant element
+  below — exactly the requested structure.
+- No colors, typography, card dimensions, icons, financial values,
+  business logic, or localization keys were changed.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 526 tests pass (includes 320x640 narrow
+  viewport overflow checks for the Dashboard in Arabic and English).
+
+## 2026-08-15 — Financial Summary Card Trend Indicator Repositioned
+
+- **UI-only change:** Moved the small trend/direction indicator chip in
+  each Dashboard `_FinancialCard` to the start of the header row, with
+  the operation icon + localized name grouped at the end (right in LTR,
+  left in RTL via the ambient `Directionality`). The financial value
+  remains the dominant element below the header.
+- The trend badge, icon, color, and financial logic are unchanged — only
+  the horizontal ordering within the header `Row` changed. A `Spacer`
+  keeps the two groups apart, and both groups use `Flexible`/`mainAxisSize:
+  min` so long Arabic labels (الدفعات المستلمة / صافي التدفق النقدي)
+  do not overflow on narrow phones.
+- No financial/business logic, schema, providers, repositories, or
+  localization keys were touched.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 526 tests pass (includes 320x640 narrow
+  viewport overflow checks for the Dashboard in Arabic and English).
+
+## 2026-08-15 — Financial Summary Card Header Refinement
+
+- **UI-only change:** Restructured the `_FinancialCard` header on the
+  Dashboard so the operation label sits beside its icon as a single
+  visual header group (`[icon] [label] … [trend badge]`), instead of the
+  icon sitting alone in a row with the trend badge and the label being
+  merged with the currency at the bottom.
+- The financial value remains the dominant element below the header, with
+  the currency shown beneath it. The label uses `Expanded` + ellipsis and
+  the trend badge uses `Flexible` so long Arabic labels
+  (الدفعات المستلمة / صافي التدفق النقدي) render without RenderFlex
+  overflow on narrow phones.
+- RTL is handled by the existing `Directionality` (the `Row` follows the
+  ambient text direction), so the icon/label group stays coherent in
+  Arabic and English.
+- No financial/business logic, calculations, schema, providers, or
+  repositories were touched. Localization keys unchanged.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 526 tests pass (includes 320x640 narrow
+  viewport overflow checks for the Dashboard).
+
+## 2026-08-15 — Dashboard UI Localization Cleanup
+
+- **Localization leaks fixed:** The Dashboard rendered raw localization keys
+  (`project_overview`, `monthly_performance`) and English-only quick-action
+  labels (`payment`, `expense`) because the Arabic entries for
+  `project_overview`, `monthly_performance`, `revenue`, `profit`, `expense`,
+  and `payment` were missing from `AppLocalizations`, so `translate()`
+  fell back to the raw key. Added the missing Arabic keys and aligned the
+  English values to the spec (`Project Overview`, `Monthly Performance`).
+- **Quick actions:** Switched the Payment/Expense quick-action buttons to
+  the existing action-oriented `new_payment` / `new_expense` keys
+  (en "New Payment" / "New Expense", ar "دفعة جديدة" / "مصروف جديد")
+  and capitalized the English values. The `reports` quick action already
+  localized correctly.
+- **Chart month labels:** Replaced the hardcoded Arabic month-name array
+  in `_MultiLineChartPainter` with localized `month_jan`…`month_dec` keys
+  passed in from the widget, and the text direction is now derived from
+  the current locale instead of being forced to RTL — so English mode
+  shows English month abbreviations and Arabic mode shows Arabic names.
+- **No business logic changed:** Financial calculations, project status
+  counting, multi-currency, schema, and repository architecture are
+  untouched. This phase is strictly Dashboard presentation/localization.
+- **Tests:** Added two widget tests verifying the Arabic and English
+  Dashboard render no raw keys/tokens (`project_overview`,
+  `monthly_performance`, `revenue`, `expenses`, `profit`, `payment`,
+  `expense`, `reports`, `status_*`, `STATUS_*`) and that the localized
+  labels are present. Wired `localizationsDelegates` into the dashboard
+  widget test harness so `context.tr` resolves under test.
+- **Verification:** `flutter analyze --no-pub` — 0 errors.
+  `flutter test --no-pub` — 526 tests pass.
+
+## 2026-08-15 — Dashboard Status Counting & Status Localization Fix
+
+- **Root cause:** The Dashboard "Pending/Paused" KPI card displayed
+  `activeClientCount` (active clients) instead of a project status count,
+  causing the same number to appear beside Active/Completed when the client
+  and project counts coincided. The "Total Projects" card derived the total
+  as `activeProjectCount + completedProjectCount`, omitting projects in other
+  statuses (planning/on_hold/cancelled). The Projects screen also leaked the
+  raw internal key `status_active` because the `status_active` localization
+  entry was missing, so `AppLocalizations.translate` fell back to the key.
+- **Status counts (data layer):** Extended `DashboardDao.getSummary`,
+  `DashboardSummaryRow`, `DashboardSummary`, and `LocalDashboardRepository`
+  to expose mutually-exclusive per-status project counts
+  (`planning/active/completed/on_hold/cancelled`) plus a real
+  `totalProjectCount`, each computed as
+  `SELECT COUNT(*) FROM projects WHERE status = ?` directly from the
+  persisted `status` column. No status is inferred from milestones,
+  payments, expenses, dates, or progress.
+- **Invariant:** `DashboardSummary.statusCountsSum == totalProjectCount`
+  (`statusCountsConsistent`) — a defensive check that no project is counted
+  in more than one bucket or omitted.
+- **Dashboard UI:** The KPI row now shows `totalProjectCount` for "Projects",
+  `completedProjectCount` for "Completed", `activeProjectCount` for
+  "Active", and `onHoldProjectCount` (localized `status_on_hold`) for the
+  paused card — never the client count. The activity card now renders the
+  project's actual localized status instead of a hardcoded
+  `status_completed` chip for every project.
+- **Localization:** Added the missing `status_active` key (en "Active" /
+  ar "نشط") and aligned `status_on_hold` to "معلّق". Replaced hardcoded
+  status labels in `project_detail_screen.dart` and `reports_screen.dart`
+  with `context.tr('status_$status')` so the UI never exposes raw tokens
+  like `STATUS_ACTIVE` / `STATUS_COMPLETED`.
+- **No schema change required.** The project `status` column already
+  existed; only queries/DTOs/UI were corrected.
+- **Tests:** Added `dashboard_status_counts_test.dart` covering scenarios
+  1–8 (three-active, mixed-status, active→completed, completed→active,
+  persistence after reopen, localization, zero-state, mixed-status invariant)
+  plus an explicit invariant test. Strengthened `phase08_dashboard_test.dart`
+  and `baseline_contracts_test.dart` for the new summary fields.
+- **Verification:** `flutter analyze --no-pub` — 0 errors, no new warnings.
+  `flutter test --no-pub` — 524 tests pass.
+
+## 2026-08-13 — Multi-Currency Wallet Workflow (schema v6)
+
+- **Independent currency wallets:** Added `WalletBalanceService` computing
+  per-currency balances (SAR wallet, YER wallet) as
+  `payments − expenses + transfers in − transfers out` per currency.
+  Different currencies are never mixed or added together.
+- **Currency transfers table (schema v6):** Added `currency_transfers` table
+  storing `id`, `projectId`, `sourceCurrency`, `targetCurrency`,
+  `sourceAmountMinor`, `targetAmountMinor`, `exchangeRateScaled`, `date`,
+  with soft-delete. The exchange rate is an immutable snapshot preserved on
+  every transfer; historical rates are never recalculated.
+- **Insufficient balance handling:** The expense form now checks the
+  matching-currency wallet before recording. If the wallet has insufficient
+  balance, an Arabic warning dialog (تنبيه مالي) shows the current balance,
+  expense value, and deficit, with three options: تحويل عملة / تمويل خارجي /
+  إلغاء. Never auto-deducts from another currency.
+- **Currency transfer UI:** Added a transfers tab and `CurrencyTransferDialog`
+  with source/target currency selectors, amount, exchange rate, live result
+  preview, and date.
+- **Financial summary UI:** Replaced the mixed "Net cash flow: X YER" card
+  with a per-currency wallet balances card (محفظة الريال السعودي /
+  محفظة الريال اليمني) plus an optional analytical converted value
+  (القيمة المحولة للتقارير) clearly marked as analytical only.
+- **Reports:** The financial summary report now distinguishes actual wallet
+  balances (SAR/YER) from analytical converted values, and never merges
+  currencies without conversion information.
+- **Localization:** Added Arabic keys for all new UI text.
+- **Tests:** Added 23 tests covering SAR/YER payments, SAR/YER expenses,
+  insufficient currency balance, currency transfer, exchange rate
+  preservation, restart persistence, and financial summary correctness.
+  Full suite: 514 passed. Analyzer: no errors (124 info/warnings).
+
 ## 2026-08-09 — Financial Validation, Contract Safety, and Amendment Architecture
 
 - **Contract amendment architecture (schema v5):** Added

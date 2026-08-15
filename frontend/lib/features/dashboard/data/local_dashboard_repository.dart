@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/daos/dashboard_dao.dart';
 import '../../../core/database/database_provider.dart';
+import '../../transfers/domain/wallet_balance_service.dart';
 import '../domain/dashboard_models.dart';
 import '../domain/dashboard_repository_interface.dart';
 
@@ -14,8 +15,9 @@ class DashboardLocalException implements Exception {
 }
 
 class LocalDashboardRepository implements DashboardRepositoryInterface {
-  LocalDashboardRepository(this._dao);
+  LocalDashboardRepository(this._dao, this._walletService);
   final DashboardDao _dao;
+  final WalletBalanceService _walletService;
 
   @override
   Future<DashboardSummary> getSummary() async {
@@ -23,14 +25,28 @@ class LocalDashboardRepository implements DashboardRepositoryInterface {
       final row = await _dao.getSummary();
       return DashboardSummary(
         activeClientCount: row.activeClients,
+        totalProjectCount: row.totalProjects,
+        planningProjectCount: row.planningProjects,
         activeProjectCount: row.activeProjects,
         completedProjectCount: row.completedProjects,
+        onHoldProjectCount: row.onHoldProjects,
+        cancelledProjectCount: row.cancelledProjects,
         totalPaymentsYer: row.totalPaymentsYer,
         totalExpensesYer: row.totalExpensesYer,
       );
     } catch (error) {
       throw DashboardLocalException(
           'Unable to read local dashboard summary.', error);
+    }
+  }
+
+  @override
+  Future<ProjectWalletBalances> getGlobalWalletBalances() async {
+    try {
+      return await _walletService.computeGlobalBalances();
+    } catch (error) {
+      throw DashboardLocalException(
+          'Unable to read local global wallet balances.', error);
     }
   }
 
@@ -104,5 +120,13 @@ final dashboardDaoProvider = Provider<DashboardDao>((ref) {
 
 final localDashboardRepositoryProvider =
     Provider<LocalDashboardRepository>((ref) {
-  return LocalDashboardRepository(ref.watch(dashboardDaoProvider));
+  final db = ref.watch(databaseProvider);
+  return LocalDashboardRepository(
+    DashboardDao(db),
+    WalletBalanceService(
+      db.paymentsDao,
+      db.expensesDao,
+      db.currencyTransfersDao,
+    ),
+  );
 });

@@ -36,6 +36,11 @@ class PaymentsDao extends DatabaseAccessor<AppDatabase>
             ]))
           .get();
 
+  /// All active (non-deleted) payments across all projects.
+  Future<List<PaymentRow>> getAllActivePayments() => (select(payments)
+        ..where((t) => t.isDeleted.equals(false)))
+      .get();
+
   /// List all payments including soft-deleted by project (for audit/tests).
   Future<List<PaymentRow>> getAllPaymentsByProject(String projectId) =>
       (select(payments)

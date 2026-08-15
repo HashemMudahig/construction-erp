@@ -43,6 +43,8 @@ class FinancialSummaryReport extends ReportResult {
     required this.endDate,
     required this.totalPaymentsYer,
     required this.totalExpensesYer,
+    required this.totalSarWalletBalance,
+    required this.totalYerWalletBalance,
     required this.perProject,
   });
 
@@ -50,6 +52,15 @@ class FinancialSummaryReport extends ReportResult {
   final DateTime? endDate;
   final int totalPaymentsYer;
   final int totalExpensesYer;
+
+  /// Actual SAR wallet balance total across all projects (SAR minor units).
+  /// Never mixed with YER.
+  final int totalSarWalletBalance;
+
+  /// Actual YER wallet balance total across all projects (YER minor units).
+  /// Never mixed with SAR.
+  final int totalYerWalletBalance;
+
   final List<ProjectFinancialReportRow> perProject;
 
   int get netCashFlowYer => totalPaymentsYer - totalExpensesYer;
@@ -61,12 +72,20 @@ class ProjectFinancialReportRow {
     required this.name,
     required this.totalPaymentsYer,
     required this.totalExpensesYer,
+    required this.sarWalletBalance,
+    required this.yerWalletBalance,
   });
 
   final String projectId;
   final String name;
   final int totalPaymentsYer;
   final int totalExpensesYer;
+
+  /// Actual SAR wallet balance (SAR minor units). Independent of YER.
+  final int sarWalletBalance;
+
+  /// Actual YER wallet balance (YER minor units). Independent of SAR.
+  final int yerWalletBalance;
 
   int get netCashFlowYer => totalPaymentsYer - totalExpensesYer;
 }

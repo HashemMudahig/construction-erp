@@ -36,6 +36,11 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
             ]))
           .get();
 
+  /// All active (non-deleted) expenses across all projects.
+  Future<List<ExpenseRow>> getAllActiveExpenses() => (select(expenses)
+        ..where((t) => t.isDeleted.equals(false)))
+      .get();
+
   /// List all expenses including soft-deleted by project (for audit/tests).
   Future<List<ExpenseRow>> getAllExpensesByProject(String projectId) =>
       (select(expenses)

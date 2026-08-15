@@ -8,6 +8,16 @@ import 'package:construction_erp/core/database/daos/dashboard_dao.dart';
 import 'package:construction_erp/features/dashboard/data/local_dashboard_repository.dart';
 import 'package:construction_erp/core/database/database_provider.dart';
 import 'package:construction_erp/features/dashboard/presentation/dashboard_providers.dart';
+import 'package:construction_erp/features/transfers/domain/wallet_balance_service.dart';
+
+LocalDashboardRepository _repo(AppDatabase db) => LocalDashboardRepository(
+      DashboardDao(db),
+      WalletBalanceService(
+        db.paymentsDao,
+        db.expensesDao,
+        db.currencyTransfersDao,
+      ),
+    );
 
 const client1 = 'aaaaaaaa-0000-4000-8000-000000000001';
 const client2 = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -62,7 +72,7 @@ void main() {
   test('empty database returns zero summary and 12 zero-filled months',
       () async {
     final db = AppDatabase(NativeDatabase.memory());
-    final repo = LocalDashboardRepository(DashboardDao(db));
+    final repo = _repo(db);
     final summary = await repo.getSummary();
     expect(summary.activeClientCount, 0);
     expect(summary.netCashFlowYer, 0);
@@ -111,10 +121,15 @@ void main() {
         expenseDate: '2026-02-12',
         createdAt: ts));
     final summary =
-        await LocalDashboardRepository(DashboardDao(db)).getSummary();
+        await _repo(db).getSummary();
     expect(summary.activeClientCount, 1);
+    expect(summary.totalProjectCount, 2);
     expect(summary.activeProjectCount, 1);
     expect(summary.completedProjectCount, 1);
+    expect(summary.onHoldProjectCount, 0);
+    expect(summary.planningProjectCount, 0);
+    expect(summary.cancelledProjectCount, 0);
+    expect(summary.statusCountsConsistent, true);
     expect(summary.totalPaymentsYer, 500);
     expect(summary.totalExpensesYer, 700);
     expect(summary.netCashFlowYer, -200);
@@ -161,7 +176,7 @@ void main() {
         status: const Value('overdue'),
         createdAt: ts));
     final projects =
-        await LocalDashboardRepository(DashboardDao(db)).getProjectsOverview();
+        await _repo(db).getProjectsOverview();
     final alpha = projects.first;
     expect(alpha.totalPaymentsYer, 300);
     expect(alpha.totalExpensesYer, 30);
@@ -183,7 +198,7 @@ void main() {
         paymentDate: '2025-12-31',
         method: 'cash',
         createdAt: ts));
-    final months = await LocalDashboardRepository(DashboardDao(db))
+    final months = await _repo(db)
         .getFinanceTimeline(
             referenceDate: DateTime(2026, 2, 28), monthCount: 3);
     expect(

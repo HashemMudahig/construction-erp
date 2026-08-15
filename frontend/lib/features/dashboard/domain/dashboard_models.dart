@@ -1,19 +1,39 @@
 class DashboardSummary {
   const DashboardSummary({
     required this.activeClientCount,
+    required this.totalProjectCount,
+    required this.planningProjectCount,
     required this.activeProjectCount,
     required this.completedProjectCount,
+    required this.onHoldProjectCount,
+    required this.cancelledProjectCount,
     required this.totalPaymentsYer,
     required this.totalExpensesYer,
   });
 
   final int activeClientCount;
+  final int totalProjectCount;
+  final int planningProjectCount;
   final int activeProjectCount;
   final int completedProjectCount;
+  final int onHoldProjectCount;
+  final int cancelledProjectCount;
   final int totalPaymentsYer;
   final int totalExpensesYer;
 
   int get netCashFlowYer => totalPaymentsYer - totalExpensesYer;
+
+  /// Invariant: the sum of all project status counters must equal the total
+  /// number of projects. Each project has exactly one persisted status, so the
+  /// mutually-exclusive buckets must never overlap or omit a project.
+  int get statusCountsSum =>
+      planningProjectCount +
+      activeProjectCount +
+      completedProjectCount +
+      onHoldProjectCount +
+      cancelledProjectCount;
+
+  bool get statusCountsConsistent => statusCountsSum == totalProjectCount;
 }
 
 class DashboardProjectOverview {

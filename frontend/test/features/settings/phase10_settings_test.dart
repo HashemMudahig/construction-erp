@@ -201,7 +201,7 @@ void main() {
     final settings = await _repository(db).loadSettings();
     expect(settings.defaultSarToYerRateScaled, 415000000);
     expect(settings.localeCode, 'en');
-    expect(db.schemaVersion, 5);
+    expect(db.schemaVersion, 6);
     await db.close();
   });
 

@@ -397,13 +397,18 @@ void main() {
     test('summary uses exact integer YER and net cash flow naming', () {
       const summary = DashboardSummary(
         activeClientCount: 11,
+        totalProjectCount: 12,
+        planningProjectCount: 0,
         activeProjectCount: 8,
         completedProjectCount: 4,
+        onHoldProjectCount: 0,
+        cancelledProjectCount: 0,
         totalPaymentsYer: 2890000,
         totalExpensesYer: 1645000,
       );
       expect(summary.activeClientCount, 11);
       expect(summary.netCashFlowYer, 1245000);
+      expect(summary.statusCountsConsistent, true);
     });
 
     test('project progress is an exact 0-100 integer percentage', () {

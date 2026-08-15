@@ -14,6 +14,8 @@ import 'package:construction_erp/features/projects/domain/project_entity.dart';
 import 'package:construction_erp/features/projects/domain/project_repository_interface.dart';
 import 'package:construction_erp/features/projects/presentation/project_detail_screen.dart';
 import 'package:construction_erp/features/projects/presentation/project_providers.dart';
+import 'package:construction_erp/features/transfers/presentation/currency_transfer_providers.dart';
+import 'package:construction_erp/features/transfers/domain/wallet_balance_service.dart';
 
 const _projectId = 'bbbbbbbb-0000-4000-8000-000000000001';
 
@@ -143,6 +145,16 @@ Future<void> _pumpDetail(
             .overrideWith((ref) async => const <ExpenseEntity>[]),
         milestonesByProjectProvider(_projectId)
             .overrideWith((ref) async => const <MilestoneEntity>[]),
+        projectWalletBalancesProvider(_projectId).overrideWith((ref) async =>
+            ProjectWalletBalances(
+              balances: const [
+                WalletBalanceEntry(currency: 'SAR', amountMinor: 0),
+                WalletBalanceEntry(currency: 'YER', amountMinor: 60000000),
+              ],
+              paymentsByCurrency: const {'YER': 100000000},
+              expensesByCurrency: const {'YER': 40000000},
+              transfersByCurrency: const {},
+            )),
       ],
       child: MaterialApp(
         locale: locale,
@@ -235,15 +247,16 @@ void main() {
       expect(find.text('150,000,000 YER'), findsNWidgets(2));
     });
 
-    testWidgets('Net cash flow large positive value fits (en)', (tester) async {
-      // balance is 60,000,000 YER; formatDisplayAmount keeps the sign.
+    testWidgets('YER wallet balance large positive value fits (en)', (tester) async {
+      // YER wallet balance is 60,000,000 (100,000,000 payments − 40,000,000
+      // expenses). The wallet balance row renders this value.
       await _pumpDetail(
         tester,
         locale: const Locale('en'),
         project: _yerProject(),
         size: redmiSize,
       );
-      // The net cash flow card renders 60,000,000 YER (balance is positive).
+      // The YER wallet balance row renders 60,000,000 YER.
       expect(find.text('60,000,000 YER'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
